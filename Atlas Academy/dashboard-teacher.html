@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>لوحة الإدارة — Atlas Academy</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+<style>
+:root{
+  --sky:#38bdf8;--sky-soft:#e0f2fe;--sky-deep:#0ea5e9;
+  --blue:#0369a1;--dark:#0c4a6e;--off:#f0f9ff;
+  --mid:#334e68;--light:#64a5c8;
+  --green:#10b981;--red:#ef4444;--orange:#f59e0b;--purple:#8b5cf6;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Cairo',sans-serif;background:var(--off);color:var(--dark);min-height:100vh}
+
+/* LOADING */
+#loading{position:fixed;inset:0;background:var(--off);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:9999}
+.spin{width:48px;height:48px;border:4px solid rgba(56,189,248,.2);border-top-color:var(--sky-deep);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#app{display:none}
+
+/* TOPBAR */
+.topbar{position:sticky;top:0;z-index:100;height:68px;background:rgba(255,255,255,.97);backdrop-filter:blur(20px);border-bottom:1px solid rgba(56,189,248,.18);padding:0 5%;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 20px rgba(3,105,161,.08)}
+.logo{font-size:18px;font-weight:900;color:var(--dark);display:flex;align-items:center;gap:8px}
+.logo span{background:linear-gradient(135deg,var(--sky-deep),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.role-badge{background:linear-gradient(135deg,var(--purple),#7c3aed);color:#fff;padding:5px 14px;border-radius:100px;font-size:12px;font-weight:800}
+.tb-right{display:flex;align-items:center;gap:12px}
+.btn{padding:9px 18px;border-radius:9px;font-family:'Cairo',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all .2s;border:none}
+.btn-red{border:1.5px solid rgba(239,68,68,.3)!important;color:var(--red);background:rgba(239,68,68,.06)}
+.btn-red:hover{background:rgba(239,68,68,.12)}
+.btn-blue{background:linear-gradient(135deg,var(--sky-deep),var(--blue));color:#fff}
+.btn-blue:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(14,165,233,.4)}
+.btn-green{background:linear-gradient(135deg,var(--green),#059669);color:#fff}
+.btn-green:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(16,185,129,.4)}
+.btn-orange{background:linear-gradient(135deg,var(--orange),#d97706);color:#fff}
+.btn-outline{border:1.5px solid rgba(56,189,248,.4)!important;color:var(--sky-deep);background:transparent}
+.btn-outline:hover{background:var(--sky-soft)}
+.btn-sm{padding:7px 14px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+
+/* LAYOUT */
+.layout{display:flex;min-height:calc(100vh - 68px)}
+
+/* SIDEBAR */
+.sidebar{width:220px;flex-shrink:0;background:#fff;border-left:1px solid rgba(56,189,248,.15);padding:24px 16px;display:flex;flex-direction:column;gap:6px;position:sticky;top:68px;height:calc(100vh - 68px);overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:11px;cursor:pointer;transition:all .2s;color:var(--mid);font-size:14px;font-weight:700;border:none;background:none;width:100%;text-align:right}
+.nav-item:hover{background:var(--sky-soft);color:var(--sky-deep)}
+.nav-item.active{background:var(--sky-soft);color:var(--sky-deep);border:1px solid rgba(56,189,248,.25)}
+.nav-item .ico{font-size:18px;width:24px;text-align:center}
+.nav-badge{margin-right:auto;background:var(--red);color:#fff;border-radius:100px;padding:1px 7px;font-size:11px;font-weight:900}
+
+/* CONTENT */
+.content{flex:1;padding:32px 4%;overflow:auto}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:28px}
+.stat{background:#fff;border-radius:16px;padding:20px;text-align:center;border:1px solid rgba(56,189,248,.15);box-shadow:0 2px 12px rgba(3,105,161,.06)}
+.stat-ico{font-size:26px;margin-bottom:8px}
+.stat-val{font-size:28px;font-weight:900;line-height:1}
+.stat-lbl{font-size:12px;color:var(--light);font-weight:600;margin-top:3px}
+.c-blue{background:linear-gradient(135deg,var(--sky-deep),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.c-green{background:linear-gradient(135deg,var(--green),#059669);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.c-orange{background:linear-gradient(135deg,var(--orange),#d97706);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.c-purple{background:linear-gradient(135deg,var(--purple),#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+
+/* SEC TITLE */
+.sec-ttl{font-size:17px;font-weight:900;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+
+/* CARDS */
+.card{background:#fff;border-radius:18px;padding:24px;border:1px solid rgba(56,189,248,.15);box-shadow:0 4px 20px rgba(3,105,161,.07);margin-bottom:22px}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{padding:11px 14px;text-align:right;font-weight:800;color:var(--light);font-size:12px;background:var(--off);border-bottom:1px solid rgba(56,189,248,.15)}
+.tbl td{padding:11px 14px;border-bottom:1px solid rgba(56,189,248,.08);vertical-align:middle}
+.tbl tr:last-child td{border:none}
+.tbl tr:hover td{background:rgba(224,242,254,.4)}
+.status-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:100px;font-size:11px;font-weight:800;white-space:nowrap}
+.s-pending{background:rgba(245,158,11,.12);color:var(--orange)}
+.s-gold{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff}
+.s-free{background:rgba(100,165,200,.12);color:var(--mid)}
+.s-approved{background:rgba(16,185,129,.12);color:var(--green)}
+.s-rejected{background:rgba(239,68,68,.12);color:var(--red)}
+
+/* FORM */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.form-row.one{grid-template-columns:1fr}
+.fld{display:flex;flex-direction:column;gap:6px}
+.fld label{font-size:13px;font-weight:700;color:var(--mid)}
+.fld input,.fld select,.fld textarea{padding:11px 14px;border:1.5px solid rgba(56,189,248,.25);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:var(--dark);background:#fff;transition:border-color .2s;outline:none}
+.fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--sky-deep)}
+.fld textarea{resize:vertical;min-height:80px}
+.upload-zone{border:2px dashed rgba(56,189,248,.4);border-radius:11px;padding:20px;text-align:center;cursor:pointer;transition:all .2s;position:relative;display:block}
+.upload-zone:hover{border-color:var(--sky-deep);background:var(--sky-soft)}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.divider{border:none;border-top:1px solid rgba(56,189,248,.15);margin:20px 0}
+
+/* RECEIPT MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1000;display:none;align-items:center;justify-content:center;padding:16px}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:22px;width:min(640px,96%);max-height:90vh;overflow-y:auto}
+.m-head{padding:20px 24px;border-bottom:1px solid rgba(56,189,248,.15);display:flex;align-items:center;justify-content:space-between}
+.m-head h3{font-size:16px;font-weight:900}
+.m-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--light);width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center}
+.m-close:hover{background:var(--sky-soft)}
+.m-body{padding:22px 24px}
+
+/* EMPTY */
+.empty{text-align:center;padding:40px;color:var(--light)}
+.empty .ico{font-size:44px;margin-bottom:10px}
+
+/* TOAST */
+#toasts{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{padding:13px 20px;border-radius:11px;color:#fff;font-size:13px;font-weight:700;min-width:250px;animation:tin .3s ease;pointer-events:all}
+.toast-s{background:var(--green)}.toast-e{background:var(--red)}.toast-i{background:var(--sky-deep)}.toast-w{background:var(--orange)}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}}
+
+/* PROGRESS BAR */
+.prog-wrap{height:8px;background:rgba(56,189,248,.15);border-radius:99px;overflow:hidden;margin-top:6px}
+.prog-bar{height:100%;background:linear-gradient(90deg,var(--sky-deep),var(--sky));border-radius:99px;transition:width .4s}
+
+@media(max-width:700px){
+  .sidebar{display:none}
+  .form-row{grid-template-columns:1fr}
+  .content{padding:20px 4%}
+}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spin"></div>
+  <p style="font-family:Cairo,sans-serif;font-size:14px;color:#64a5c8">جارٍ التحقق من الصلاحيات...</p>
+</div>
+
+<div id="app">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="logo">🎓 <span>Atlas Academy</span></div>
+    <div class="tb-right">
+      <span class="role-badge" id="roleLabel">إدارة</span>
+      <button class="btn btn-red" onclick="logout()">خروج</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <button class="nav-item active" onclick="switchTab('stats')"   id="tab-stats">  <span class="ico">📊</span> الإحصاءات</button>
+      <button class="nav-item"        onclick="switchTab('payments')" id="tab-payments"><span class="ico">💳</span> طلبات الدفع <span class="nav-badge" id="pendingCount" style="display:none">0</span></button>
+      <button class="nav-item"        onclick="switchTab('content')"  id="tab-content"> <span class="ico">📤</span> إضافة محتوى</button>
+      <button class="nav-item"        onclick="switchTab('students')" id="tab-students"><span class="ico">👥</span> الطلاب</button>
+      <button class="nav-item"        onclick="switchTab('settings')" id="tab-settings"><span class="ico">⚙️</span> الإعدادات</button>
+    </div>
+
+    <!-- CONTENT AREA -->
+    <div class="content">
+
+      <!-- ========== TAB: STATS ========== -->
+      <div id="pane-stats">
+        <div class="sec-ttl">📊 نظرة عامة</div>
+        <div class="stats">
+          <div class="stat"><div class="stat-ico">👥</div><div class="stat-val c-blue" id="cStudents">—</div><div class="stat-lbl">إجمالي الطلاب</div></div>
+          <div class="stat"><div class="stat-ico">✨</div><div class="stat-val c-green" id="cGold">—</div><div class="stat-lbl">مشتركون ذهبيون</div></div>
+          <div class="stat"><div class="stat-ico">⏳</div><div class="stat-val c-orange" id="cPending">—</div><div class="stat-lbl">طلبات معلقة</div></div>
+          <div class="stat"><div class="stat-ico">📚</div><div class="stat-val c-purple" id="cCourses">—</div><div class="stat-lbl">الدورات</div></div>
+        </div>
+        <div class="card">
+          <div class="sec-ttl">⏳ آخر طلبات الدفع</div>
+          <div id="recentPayments"><p class="empty"><span class="ico">⏳</span><br>جارٍ التحميل...</p></div>
+        </div>
+      </div>
+
+      <!-- ========== TAB: PAYMENTS ========== -->
+      <div id="pane-payments" style="display:none">
+        <div class="sec-ttl">💳 طلبات الاشتراك</div>
+        <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+          <button class="btn btn-blue  btn-sm" onclick="loadPayments('pending')">⏳ معلقة</button>
+          <button class="btn btn-green btn-sm" onclick="loadPayments('approved')">✅ مقبولة</button>
+          <button class="btn btn-red   btn-sm" onclick="loadPayments('rejected')">❌ مرفوضة</button>
+          <button class="btn btn-outline btn-sm" onclick="loadPayments('all')">الكل</button>
+        </div>
+        <div class="card" style="overflow-x:auto">
+          <table class="tbl" id="paymentsTable">
+            <thead><tr>
+              <th>الطالب</th><th>طريقة الدفع</th><th>المبلغ</th><th>التاريخ</th><th>الحالة</th><th>الوصل</th><th>إجراء</th>
+            </tr></thead>
+            <tbody id="paymentsTbody">
+              <tr><td colspan="6" class="empty"><div class="ico">⏳</div><p>جارٍ التحميل...</p></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========== TAB: CONTENT ========== -->
+      <div id="pane-content" style="display:none">
+        <!-- ADD COURSE -->
+        <div class="sec-ttl">📚 إضافة دورة جديدة</div>
+        <div class="card">
+          <div class="form-row">
+            <div class="fld"><label>عنوان الدورة *</label><input type="text" id="cTitle" placeholder="مثال: فيزياء — ثالثة ثانوي"></div>
+            <div class="fld"><label>المستوى</label>
+              <select id="cLevel">
+                <option value="">— اختر المستوى —</option>
+                <option>أولى ثانوي</option><option>ثانية ثانوي</option><option>ثالثة ثانوي</option>
+                <option>BEM</option><option>BAC</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="fld"><label>المادة</label>
+              <select id="cSubject">
+                <option value="">— اختر المادة —</option>
+                <option>فيزياء</option><option>رياضيات</option><option>كيمياء</option>
+                <option>علوم طبيعية</option><option>عربية</option><option>تاريخ وجغرافيا</option><option>إنجليزية</option><option>فرنسية</option>
+              </select>
+            </div>
+            <div class="fld"><label>لون البطاقة</label>
+              <select id="cColor">
+                <option value="linear-gradient(135deg,#e0f2fe,#bae6fd)">أزرق فاتح</option>
+                <option value="linear-gradient(135deg,#d1fae5,#a7f3d0)">أخضر</option>
+                <option value="linear-gradient(135deg,#fce7f3,#fbcfe8)">وردي</option>
+                <option value="linear-gradient(135deg,#ede9fe,#ddd6fe)">بنفسجي</option>
+                <option value="linear-gradient(135deg,#fef3c7,#fde68a)">ذهبي</option>
+                <option value="linear-gradient(135deg,#fee2e2,#fecaca)">أحمر فاتح</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row one">
+            <div class="fld"><label>وصف الدورة</label><textarea id="cDesc" placeholder="وصف مختصر عن الدورة..."></textarea></div>
+          </div>
+          <div class="form-row">
+            <div class="fld" style="flex-direction:row;align-items:center;gap:10px">
+              <input type="checkbox" id="cPaid" style="width:18px;height:18px;accent-color:var(--sky-deep)">
+              <label for="cPaid" style="cursor:pointer;font-weight:700;font-size:14px">🔒 محتوى مدفوع (يتطلب اشتراكاً)</label>
+            </div>
+          </div>
+          <button class="btn btn-blue" onclick="addCourse()" id="addCourseBtn">إضافة الدورة ←</button>
+        </div>
+
+        <hr class="divider">
+
+        <!-- ADD LESSON -->
+        <div class="sec-ttl">🎬 إضافة درس لدورة موجودة</div>
+        <div class="card">
+          <div class="form-row">
+            <div class="fld"><label>الدورة *</label>
+              <select id="lCourse">
+                <option value="">— اختر الدورة —</option>
+              </select>
+            </div>
+            <div class="fld"><label>عنوان الدرس *</label><input type="text" id="lTitle" placeholder="مثال: الدرس الأول — قوانين نيوتن"></div>
+          </div>
+          <div class="form-row">
+            <div class="fld">
+              <label>رابط الفيديو (YouTube أو Vimeo)</label>
+              <input type="url" id="lVideo" placeholder="https://youtu.be/...">
+              <span style="font-size:11px;color:var(--light);margin-top:3px">استخدم رابط Unlisted لحماية المحتوى</span>
+            </div>
+            <div class="fld"><label>الترتيب</label><input type="number" id="lOrder" value="1" min="1"></div>
+          </div>
+          <div class="form-row one">
+            <div class="fld">
+              <label>ملف PDF (اختياري)</label>
+              <label class="upload-zone" id="pdfZone">
+                <input type="file" id="pdfInput" accept="application/pdf" onchange="onPdfSelect(event)">
+                <div style="font-size:26px;margin-bottom:6px">📄</div>
+                <p style="font-size:13px;color:var(--mid)">اضغط لرفع ملف PDF</p>
+              </label>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="fld" style="flex-direction:row;align-items:center;gap:10px">
+              <input type="checkbox" id="lPaid" style="width:18px;height:18px;accent-color:var(--sky-deep)">
+              <label for="lPaid" style="cursor:pointer;font-weight:700;font-size:14px">🔒 محتوى مدفوع</label>
+            </div>
+          </div>
+          <div id="uploadProgress" style="display:none;margin-bottom:12px">
+            <div style="font-size:13px;color:var(--mid);margin-bottom:4px">جارٍ رفع الملف... <span id="progPct">0%</span></div>
+            <div class="prog-wrap"><div class="prog-bar" id="progBar" style="width:0%"></div></div>
+          </div>
+          <button class="btn btn-blue" onclick="addLesson()" id="addLessonBtn">إضافة الدرس ←</button>
+        </div>
+
+        <hr class="divider">
+
+        <!-- COURSES LIST -->
+        <div class="sec-ttl">📋 الدورات الموجودة</div>
+        <div id="coursesList" class="card">
+          <p class="empty"><span class="ico">⏳</span><br>جارٍ التحميل...</p>
+        </div>
+      </div>
+
+      <!-- ========== TAB: STUDENTS ========== -->
+      <div id="pane-students" style="display:none">
+        <div class="sec-ttl">👥 إدارة الطلاب</div>
+        <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+          <button class="btn btn-blue   btn-sm" onclick="loadStudents('all')">الكل</button>
+          <button class="btn btn-green  btn-sm" onclick="loadStudents('gold')">✨ ذهبيون</button>
+          <button class="btn btn-orange btn-sm" onclick="loadStudents('pending')">⏳ معلقون</button>
+          <button class="btn btn-outline btn-sm" onclick="loadStudents('free')">مجانيون</button>
+        </div>
+        <div class="card" style="overflow-x:auto">
+          <table class="tbl">
+            <thead><tr><th>الاسم</th><th>البريد</th><th>الاشتراك</th><th>تاريخ الانضمام</th><th>إجراء</th></tr></thead>
+            <tbody id="studentsTbody">
+              <tr><td colspan="5" class="empty"><div class="ico">⏳</div><p>جارٍ التحميل...</p></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========== TAB: SETTINGS ========== -->
+      <div id="pane-settings" style="display:none">
+        <div class="sec-ttl">⚙️ الإعدادات</div>
+        <div class="card">
+          <div class="sec-ttl" style="font-size:15px">💳 معلومات حساب CCP</div>
+          <div class="form-row">
+            <div class="fld"><label>رقم حساب CCP</label><input type="text" id="sCcpNum" placeholder="0041571485 Clé 46"></div>
+            <div class="fld"><label>اسم صاحب الحساب (CCP)</label><input type="text" id="sCcpOwner" placeholder="أشرف مدور — سطيف"></div>
+          </div>
+          <div class="form-row">
+            <div class="fld"><label>رقم RIP — Baridimob</label><input type="text" id="sRip" placeholder="00799999004157148509"></div>
+            <div class="fld"><label>اسم صاحب الحساب (Baridimob)</label><input type="text" id="sRipOwner" placeholder="أشرف مدور"></div>
+          </div>
+          <div class="form-row one">
+            <div class="fld"><label>سعر الاشتراك (دج)</label><input type="number" id="sPrice" value="2500" min="0"></div>
+          </div>
+          <button class="btn btn-blue" onclick="saveSettings()">حفظ الإعدادات ✓</button>
+        </div>
+
+        <div class="card" style="margin-top:0">
+          <div class="sec-ttl" style="font-size:15px">👤 إضافة أستاذ/مدير</div>
+          <p style="font-size:13px;color:var(--mid);margin-bottom:16px;line-height:1.7">للترقية، اكتب البريد الإلكتروني للمستخدم وحدد الدور الجديد. يجب أن يكون لديه حساب مسجّل مسبقاً.</p>
+          <div class="form-row">
+            <div class="fld"><label>البريد الإلكتروني</label><input type="email" id="promoteEmail" placeholder="example@email.com"></div>
+            <div class="fld"><label>الدور الجديد</label>
+              <select id="promoteRole">
+                <option value="teacher">أستاذ (teacher)</option>
+                <option value="admin">مدير (admin)</option>
+                <option value="student">طالب (student)</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-orange" onclick="promoteUser()">تغيير الدور ←</button>
+        </div>
+      </div>
+
+    </div><!-- end content -->
+  </div><!-- end layout -->
+</div><!-- end app -->
+
+<!-- RECEIPT MODAL -->
+<div class="overlay" id="receiptModal">
+  <div class="modal">
+    <div class="m-head">
+      <h3 id="receiptName">وصل الدفع</h3>
+      <button class="m-close" onclick="closeReceiptModal()">✕</button>
+    </div>
+    <div class="m-body">
+      <img id="receiptImg" src="" style="width:100%;border-radius:10px;margin-bottom:16px" onerror="this.style.display='none'">
+      <div id="receiptPdfLink" style="display:none;margin-bottom:16px">
+        <a id="receiptPdfHref" href="#" target="_blank" class="btn btn-blue" style="display:inline-block;text-decoration:none">📄 فتح ملف PDF</a>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-green" style="flex:1" id="approveBtn" onclick="processPayment('approved')">✅ قبول وتفعيل الحساب</button>
+        <button class="btn btn-red"   style="flex:1" id="rejectBtn"  onclick="processPayment('rejected')">❌ رفض</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+/* ===== FIREBASE ===== */
+const firebaseConfig = {
+  apiKey:            "AIzaSyBc0M_3R7xcOj-KT_xz8vvyR_9Ja8tQ-cM",
+  authDomain:        "atlas-academy-b2561.firebaseapp.com",
+  projectId:         "atlas-academy-b2561",
+  storageBucket:     "atlas-academy-b2561.firebasestorage.app",
+  messagingSenderId: "417787843371",
+  appId:             "1:417787843371:web:d8f7f96b37825507afeb6e"
+};
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const auth    = firebase.auth();
+const db      = firebase.firestore();
+const storage = firebase.storage();
+
+/* ===== STATE ===== */
+let me = null, myRole = null;
+let currentPaymentId = null, currentPaymentUserId = null;
+let selectedPdfFile = null;
+let allCourses = [];
+
+/* ===== BOOT ===== */
+auth.onAuthStateChanged(async user => {
+  if (!user) { location.href = 'atlas_enhanced.html'; return; }
+  me = user;
+  const snap = await db.collection('users').doc(me.uid).get();
+  if (!snap.exists) { location.href = 'atlas_enhanced.html'; return; }
+  myRole = snap.data().role;
+
+  // ── Bootstrap: إذا لم يكن هناك مدير بعد، عيّن هذا المستخدم مديراً ──
+  if (myRole !== 'teacher' && myRole !== 'admin') {
+    try {
+      const adminSnap = await db.collection('users')
+        .where('role','==','admin').limit(1).get();
+      if (adminSnap.empty) {
+        await db.collection('users').doc(me.uid).update({ role: 'admin' });
+        myRole = 'admin';
+        console.log('✅ Bootstrap: تم تعيينك كأول مدير');
+      } else {
+        location.href = 'dashboard-student.html'; return;
+      }
+    } catch(e) {
+      location.href = 'dashboard-student.html'; return;
+    }
+  }
+  setText('roleLabel', myRole === 'admin' ? '👑 مدير' : '👨‍🏫 أستاذ');
+  await Promise.all([ loadStats(), loadCoursesList(), loadSettings() ]);
+  loadPayments('pending');
+  hide('loading'); show('app');
+});
+
+/* ===== STATS ===== */
+async function loadStats() {
+  try {
+    const [students, pending, courses] = await Promise.all([
+      db.collection('users').where('role','==','student').get(),
+      db.collection('payments').where('status','==','pending').get(),
+      db.collection('courses').get()
+    ]);
+    const gold = students.docs.filter(d => d.data().subscription === 'gold').length;
+    setText('cStudents', students.size);
+    setText('cGold',     gold);
+    setText('cPending',  pending.size);
+    setText('cCourses',  courses.size);
+    // Pending badge
+    if (pending.size > 0) {
+      const badge = document.getElementById('pendingCount');
+      badge.textContent = pending.size; badge.style.display = 'inline';
+    }
+    // Recent payments preview
+    renderRecentPayments(pending.docs.slice(0, 5));
+  } catch(e) { console.error(e); }
+}
+
+function renderRecentPayments(docs) {
+  const el = document.getElementById('recentPayments');
+  if (!docs.length) { el.innerHTML = '<div class="empty"><div class="ico">✅</div><p>لا توجد طلبات معلقة</p></div>'; return; }
+  el.innerHTML = `<table class="tbl"><thead><tr><th>الطالب</th><th>المبلغ</th><th>التاريخ</th><th></th></tr></thead>
+  <tbody>${docs.map(d => {
+    const p = d.data();
+    const date = p.submittedAt?.toDate ? p.submittedAt.toDate().toLocaleDateString('ar-DZ') : '—';
+    return `<tr>
+      <td><strong>${p.userName||'—'}</strong><br><span style="color:var(--light);font-size:11px">${p.userEmail||''}</span></td>
+      <td><span style="font-size:11px;font-weight:700;color:var(--mid)">${p.paymentMethod==='baridimob'?'📱 Baridimob':'💳 CCP'}</span></td>
+      <td>${p.amount||2500} دج</td><td>${date}</td>
+      <td><button class="btn btn-orange btn-sm" onclick="openReceiptModal('${d.id}','${p.userId}','${p.userName}','${p.receiptUrl}')">عرض الوصل</button></td>
+    </tr>`;
+  }).join('')}</tbody></table>`;
+}
+
+/* ===== PAYMENTS ===== */
+async function loadPayments(filter) {
+  const tbody = document.getElementById('paymentsTbody');
+  tbody.innerHTML = '<tr><td colspan="6" class="empty"><div class="ico">⏳</div><p>جارٍ التحميل...</p></td></tr>';
+  try {
+    let q = db.collection('payments').orderBy('submittedAt','desc');
+    if (filter !== 'all') q = q.where('status','==',filter);
+    const snap = await q.limit(50).get();
+    if (snap.empty) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty"><div class="ico">📭</div><p>لا توجد طلبات</p></td></tr>';
+      return;
+    }
+    tbody.innerHTML = snap.docs.map(d => {
+      const p = d.data();
+      const date = p.submittedAt?.toDate ? p.submittedAt.toDate().toLocaleDateString('ar-DZ') : '—';
+      const statusMap = { pending:'⏳ معلق', approved:'✅ مقبول', rejected:'❌ مرفوض' };
+      const classMap  = { pending:'s-pending', approved:'s-approved', rejected:'s-rejected' };
+      const isPending = p.status === 'pending';
+      return `<tr>
+        <td><strong>${p.userName||'—'}</strong><br><span style="font-size:11px;color:var(--light)">${p.userEmail||''}</span></td>
+        <td><span class="status-badge ${p.paymentMethod==='baridimob'?'s-approved':'s-free'}">${p.paymentMethod==='baridimob'?'📱 Baridimob':'💳 CCP'}</span></td>
+        <td>${p.amount||2500} دج</td>
+        <td>${date}</td>
+        <td><span class="status-badge ${classMap[p.status]||''}">${statusMap[p.status]||p.status}</span></td>
+        <td><button class="btn btn-outline btn-sm" onclick="openReceiptModal('${d.id}','${p.userId}','${p.userName||'الطالب'}','${p.receiptUrl}')">عرض</button></td>
+        <td style="display:flex;gap:6px;flex-wrap:wrap">
+          ${isPending ? `
+            <button class="btn btn-green btn-sm" onclick="quickApprove('${d.id}','${p.userId}')">✅ قبول</button>
+            <button class="btn btn-red   btn-sm" onclick="quickReject('${d.id}')">❌ رفض</button>` : '—'}
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+function openReceiptModal(payId, userId, userName, receiptUrl) {
+  currentPaymentId = payId; currentPaymentUserId = userId;
+  setText('receiptName', `وصل دفع: ${userName}`);
+  const img  = document.getElementById('receiptImg');
+  const pdf  = document.getElementById('receiptPdfLink');
+  const href = document.getElementById('receiptPdfHref');
+  if (receiptUrl.includes('.pdf') || receiptUrl.includes('application%2Fpdf')) {
+    img.style.display = 'none'; pdf.style.display = 'block'; href.href = receiptUrl;
+  } else {
+    img.src = receiptUrl; img.style.display = 'block'; pdf.style.display = 'none';
+  }
+  document.getElementById('receiptModal').classList.add('open');
+}
+
+function closeReceiptModal() { document.getElementById('receiptModal').classList.remove('open'); }
+
+async function processPayment(action) {
+  document.getElementById('approveBtn').disabled = true;
+  document.getElementById('rejectBtn').disabled  = true;
+  if (action === 'approved') {
+    await approvePayment(currentPaymentId, currentPaymentUserId);
+  } else {
+    await rejectPayment(currentPaymentId);
+  }
+  closeReceiptModal();
+  loadPayments('pending');
+  loadStats();
+}
+
+async function quickApprove(payId, userId) { await approvePayment(payId, userId); loadPayments('pending'); loadStats(); }
+async function quickReject(payId)           { await rejectPayment(payId);           loadPayments('pending'); loadStats(); }
+
+async function approvePayment(payId, userId) {
+  try {
+    const expiry = new Date(); expiry.setDate(expiry.getDate() + 30);
+    const batch = db.batch();
+    batch.update(db.collection('payments').doc(payId), {
+      status: 'approved', processedAt: firebase.firestore.FieldValue.serverTimestamp(), processedBy: me.uid
+    });
+    batch.update(db.collection('users').doc(userId), {
+      subscription: 'gold', subscriptionPending: false,
+      subscriptionExpiry: firebase.firestore.Timestamp.fromDate(expiry),
+      activatedBy: me.uid, activatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await batch.commit();
+    toast('تم تفعيل الاشتراك ✅', 's');
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+async function rejectPayment(payId) {
+  try {
+    await db.collection('payments').doc(payId).update({
+      status: 'rejected', processedAt: firebase.firestore.FieldValue.serverTimestamp(), processedBy: me.uid
+    });
+    toast('تم رفض الطلب', 'w');
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+/* ===== COURSES ===== */
+async function loadCoursesList() {
+  try {
+    const snap = await db.collection('courses').orderBy('createdAt','desc').get();
+    allCourses = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+    // Fill course dropdown in lesson form
+    const sel = document.getElementById('lCourse');
+    sel.innerHTML = '<option value="">— اختر الدورة —</option>' +
+      allCourses.map(c => `<option value="${c.id}">${c.title}</option>`).join('');
+    // Render courses list
+    renderCoursesList();
+  } catch(e) {}
+}
+
+function renderCoursesList() {
+  const el = document.getElementById('coursesList');
+  if (!allCourses.length) {
+    el.innerHTML = '<div class="empty"><div class="ico">📭</div><p>لم تُضف دورات بعد</p></div>'; return;
+  }
+  el.innerHTML = `<table class="tbl">
+    <thead><tr><th>العنوان</th><th>المستوى</th><th>المادة</th><th>النوع</th><th>إجراء</th></tr></thead>
+    <tbody>${allCourses.map(c => `<tr>
+      <td><strong>${c.title}</strong></td>
+      <td>${c.level||'—'}</td>
+      <td>${c.subject||'—'}</td>
+      <td><span class="status-badge ${c.isPaid ? 's-gold' : 's-free'}">${c.isPaid ? '🔒 مدفوع' : '🆓 مجاني'}</span></td>
+      <td><button class="btn btn-red btn-sm" onclick="deleteCourse('${c.id}','${c.title.replace(/'/g,'')}')">🗑️ حذف</button></td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+async function addCourse() {
+  const title = val('cTitle');
+  if (!title) { toast('أدخل عنوان الدورة', 'w'); return; }
+  const btn = document.getElementById('addCourseBtn');
+  btn.disabled = true; btn.textContent = '⏳ جارٍ الإضافة...';
+  try {
+    const ref = await db.collection('courses').add({
+      title,
+      level:    val('cLevel'),
+      subject:  val('cSubject'),
+      color:    val('cColor'),
+      description: val('cDesc'),
+      isPaid:   document.getElementById('cPaid').checked,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      teacherId: me.uid
+    });
+    toast('تمت إضافة الدورة ✅', 's');
+    // Reset form
+    ['cTitle','cDesc'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('cPaid').checked = false;
+    await loadCoursesList();
+    setText('cCourses', allCourses.length);
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+  finally { btn.disabled = false; btn.textContent = 'إضافة الدورة ←'; }
+}
+
+async function deleteCourse(id, title) {
+  if (!confirm(`هل تريد حذف الدورة "${title}"؟ سيتم حذف جميع الدروس المرتبطة بها.`)) return;
+  try {
+    // Delete lessons first
+    const lessons = await db.collection('lessons').where('courseId','==',id).get();
+    const batch = db.batch();
+    lessons.forEach(d => batch.delete(d.ref));
+    batch.delete(db.collection('courses').doc(id));
+    await batch.commit();
+    toast('تم حذف الدورة', 's');
+    await loadCoursesList();
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+/* ===== LESSONS ===== */
+function onPdfSelect(e) {
+  selectedPdfFile = e.target.files[0];
+  if (!selectedPdfFile) return;
+  const zone = document.getElementById('pdfZone');
+  zone.innerHTML = `
+    <input type="file" id="pdfInput" accept="application/pdf" onchange="onPdfSelect(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
+    <div style="font-size:26px;margin-bottom:6px">✅</div>
+    <p style="color:var(--green);font-weight:700;font-size:13px">${selectedPdfFile.name}</p>
+    <p style="font-size:11px;color:var(--light);margin-top:3px">اضغط لتغيير الملف</p>`;
+}
+
+async function addLesson() {
+  const courseId = val('lCourse'), title = val('lTitle');
+  if (!courseId) { toast('اختر الدورة أولاً', 'w'); return; }
+  if (!title)    { toast('أدخل عنوان الدرس', 'w'); return; }
+
+  const btn = document.getElementById('addLessonBtn');
+  btn.disabled = true; btn.textContent = '⏳ جارٍ الإضافة...';
+
+  let pdfUrl = '';
+  try {
+    // Upload PDF if selected
+    if (selectedPdfFile) {
+      show('uploadProgress');
+      const ref = storage.ref(`pdfs/${courseId}/${Date.now()}_${selectedPdfFile.name}`);
+      const task = ref.put(selectedPdfFile);
+      await new Promise((res, rej) => {
+        task.on('state_changed',
+          snap => {
+            const pct = Math.round(snap.bytesTransferred / snap.totalBytes * 100);
+            document.getElementById('progBar').style.width = pct + '%';
+            setText('progPct', pct + '%');
+          },
+          rej, res
+        );
+      });
+      pdfUrl = await task.snapshot.ref.getDownloadURL();
+      hide('uploadProgress');
+    }
+
+    await db.collection('lessons').add({
+      courseId, title,
+      videoUrl: val('lVideo'),
+      pdfUrl,
+      order:    parseInt(val('lOrder')) || 1,
+      isPaid:   document.getElementById('lPaid').checked,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    toast('تمت إضافة الدرس ✅', 's');
+    // Reset
+    ['lTitle','lVideo','lOrder'].forEach(id => document.getElementById(id).value = id === 'lOrder' ? '1' : '');
+    document.getElementById('lPaid').checked = false;
+    selectedPdfFile = null;
+    document.getElementById('pdfZone').innerHTML = `
+      <input type="file" id="pdfInput" accept="application/pdf" onchange="onPdfSelect(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
+      <div style="font-size:26px;margin-bottom:6px">📄</div>
+      <p style="font-size:13px;color:var(--mid)">اضغط لرفع ملف PDF</p>`;
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); hide('uploadProgress'); }
+  finally { btn.disabled = false; btn.textContent = 'إضافة الدرس ←'; }
+}
+
+/* ===== STUDENTS ===== */
+async function loadStudents(filter) {
+  const tbody = document.getElementById('studentsTbody');
+  tbody.innerHTML = '<tr><td colspan="5" class="empty"><div class="ico">⏳</div><p>جارٍ التحميل...</p></td></tr>';
+  try {
+    let q = db.collection('users').where('role','==','student');
+    if (filter === 'gold')    q = q.where('subscription','==','gold');
+    if (filter === 'free')    q = q.where('subscription','==','free');
+    if (filter === 'pending') q = q.where('subscriptionPending','==',true);
+    const snap = await q.orderBy('createdAt','desc').limit(100).get();
+
+    if (snap.empty) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty"><div class="ico">📭</div><p>لا يوجد طلاب</p></td></tr>';
+      return;
+    }
+    tbody.innerHTML = snap.docs.map(d => {
+      const u = d.data();
+      const date  = u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString('ar-DZ') : '—';
+      const sub   = u.subscription || 'free';
+      const subMap  = { gold:'✨ ذهبي', free:'مجاني' };
+      const subClass= { gold:'s-gold',  free:'s-free'  };
+      const isPending = u.subscriptionPending && sub !== 'gold';
+      return `<tr>
+        <td><strong>${u.name||'—'}</strong></td>
+        <td style="font-size:12px;color:var(--mid)">${u.email||'—'}</td>
+        <td>
+          ${isPending ? '<span class="status-badge s-pending">⏳ معلق</span>' :
+            `<span class="status-badge ${subClass[sub]||'s-free'}">${subMap[sub]||sub}</span>`}
+        </td>
+        <td style="font-size:12px">${date}</td>
+        <td style="display:flex;gap:6px;flex-wrap:wrap">
+          ${sub !== 'gold' ? `<button class="btn btn-green btn-sm" onclick="manualActivate('${d.id}')">✅ تفعيل</button>` : ''}
+          ${sub === 'gold' ? `<button class="btn btn-red   btn-sm" onclick="manualDeactivate('${d.id}')">🚫 إلغاء</button>` : ''}
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+async function manualActivate(uid) {
+  if (!confirm('تفعيل اشتراك هذا الطالب يدوياً؟')) return;
+  try {
+    const exp = new Date(); exp.setDate(exp.getDate() + 30);
+    await db.collection('users').doc(uid).update({
+      subscription: 'gold', subscriptionPending: false,
+      subscriptionExpiry: firebase.firestore.Timestamp.fromDate(exp),
+      activatedBy: me.uid
+    });
+    toast('تم التفعيل ✅', 's');
+    loadStudents('all');
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+async function manualDeactivate(uid) {
+  if (!confirm('إلغاء اشتراك هذا الطالب؟')) return;
+  try {
+    await db.collection('users').doc(uid).update({ subscription: 'free', subscriptionPending: false });
+    toast('تم إلغاء الاشتراك', 'w');
+    loadStudents('all');
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+/* ===== SETTINGS ===== */
+async function loadSettings() {
+  try {
+    const s = await db.collection('settings').doc('payments').get();
+    if (s.exists) {
+      const d = s.data();
+      document.getElementById('sCcpNum').value    = d.ccpNumber  || '0041571485 Clé 46';
+      document.getElementById('sCcpOwner').value  = d.ccpOwner   || 'أشرف مدور — سطيف';
+      document.getElementById('sRip').value       = d.baridimobRip   || '00799999004157148509';
+      document.getElementById('sRipOwner').value  = d.baridimobOwner || 'أشرف مدور';
+      document.getElementById('sPrice').value     = d.price      || 2500;
+    } else {
+      // أول مرة: احفظ القيم الافتراضية تلقائياً
+      await db.collection('settings').doc('payments').set({
+        ccpNumber:      '0041571485 Clé 46',
+        ccpOwner:       'أشرف مدور — سطيف',
+        baridimobRip:   '00799999004157148509',
+        baridimobOwner: 'أشرف مدور',
+        price: 2500,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      document.getElementById('sCcpNum').value    = '0041571485 Clé 46';
+      document.getElementById('sCcpOwner').value  = 'أشرف مدور — سطيف';
+      document.getElementById('sRip').value       = '00799999004157148509';
+      document.getElementById('sRipOwner').value  = 'أشرف مدور';
+    }
+  } catch(e) { console.error('loadSettings:', e); }
+}
+
+async function saveSettings() {
+  try {
+    await db.collection('settings').doc('payments').set({
+      ccpNumber:      val('sCcpNum'),
+      ccpOwner:       val('sCcpOwner'),
+      baridimobRip:   val('sRip'),
+      baridimobOwner: val('sRipOwner'),
+      price:          parseInt(val('sPrice')) || 2500,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    toast('تم حفظ الإعدادات ✅', 's');
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+async function promoteUser() {
+  const email = val('promoteEmail'), role = val('promoteRole');
+  if (!email) { toast('أدخل البريد الإلكتروني', 'w'); return; }
+  try {
+    const snap = await db.collection('users').where('email','==',email).limit(1).get();
+    if (snap.empty) { toast('لم يُوجد مستخدم بهذا البريد', 'e'); return; }
+    await snap.docs[0].ref.update({ role });
+    toast(`تم تغيير دور ${email} إلى ${role} ✅`, 's');
+    document.getElementById('promoteEmail').value = '';
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+/* ===== AUTH ===== */
+async function logout() { await auth.signOut(); location.href = 'atlas_enhanced.html'; }
+
+/* ===== NAV ===== */
+const panes = ['stats','payments','content','students','settings'];
+function switchTab(name) {
+  panes.forEach(p => {
+    document.getElementById(`pane-${p}`).style.display  = p===name ? 'block' : 'none';
+    document.getElementById(`tab-${p}`).classList.toggle('active', p===name);
+  });
+  if (name === 'students') loadStudents('all');
+  if (name === 'payments') loadPayments('pending');
+  if (name === 'stats')    loadStats();
+  if (name === 'content')  loadCoursesList();
+}
+
+/* ===== HELPERS ===== */
+function show(id){ document.getElementById(id).style.display = 'block' }
+function hide(id){ document.getElementById(id).style.display = 'none'  }
+function setText(id, v){ const e = document.getElementById(id); if(e) e.textContent = v; }
+function val(id){ return document.getElementById(id)?.value?.trim() || ''; }
+function toast(msg, type='i'){
+  const c = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`; t.textContent = msg; c.appendChild(t);
+  setTimeout(()=>t.remove(), 4500);
+}
+</script>
+</body>
+</html>
