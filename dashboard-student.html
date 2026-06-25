@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>لوحة الطالب — Atlas Academy</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+<style>
+:root{
+  --sky:#38bdf8;--sky-light:#bae6fd;--sky-soft:#e0f2fe;--sky-deep:#0ea5e9;
+  --blue:#0369a1;--blue-dark:#0c4a6e;--white:#fff;--off:#f0f9ff;
+  --mid:#334e68;--light:#64a5c8;--green:#10b981;--red:#ef4444;--orange:#f59e0b;--purple:#8b5cf6;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Cairo',sans-serif;background:var(--off);color:var(--blue-dark);min-height:100vh}
+
+#loading{position:fixed;inset:0;background:var(--off);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:9999}
+.spin{width:48px;height:48px;border:4px solid rgba(56,189,248,.2);border-top-color:var(--sky-deep);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#app{display:none}
+
+/* TOPBAR */
+.topbar{position:sticky;top:0;z-index:100;height:68px;background:rgba(255,255,255,.97);backdrop-filter:blur(20px);border-bottom:1px solid rgba(56,189,248,.18);padding:0 5%;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 20px rgba(3,105,161,.08)}
+.logo{font-size:19px;font-weight:900;color:var(--blue-dark);text-decoration:none;display:flex;align-items:center;gap:8px}
+.logo span{background:linear-gradient(135deg,var(--sky-deep),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.tb-right{display:flex;align-items:center;gap:12px}
+.avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--sky-deep),var(--blue));color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;flex-shrink:0}
+.uname{font-size:14px;font-weight:700}
+.uemail{font-size:11px;color:var(--light)}
+.btn{padding:9px 18px;border-radius:9px;font-family:'Cairo',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all .2s;border:none}
+.btn-outline{border:1.5px solid rgba(56,189,248,.4)!important;color:var(--sky-deep);background:transparent}
+.btn-outline:hover{background:var(--sky-soft)}
+.btn-red{border:1.5px solid rgba(239,68,68,.3)!important;color:var(--red);background:rgba(239,68,68,.06)}
+.btn-red:hover{background:rgba(239,68,68,.12)}
+.btn-gold{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;box-shadow:0 4px 16px rgba(245,158,11,.3)}
+.btn-gold:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(245,158,11,.4)}
+.btn-blue{background:linear-gradient(135deg,var(--sky-deep),var(--blue));color:#fff;box-shadow:0 4px 16px rgba(14,165,233,.3)}
+.btn-blue:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(14,165,233,.4)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+
+.main{padding:36px 5%;max-width:1280px;margin:0 auto}
+
+/* WELCOME */
+.welcome{background:linear-gradient(135deg,var(--sky-deep),var(--blue-dark));border-radius:24px;padding:28px 32px;color:#fff;margin-bottom:24px;position:relative;overflow:hidden}
+.welcome::before{content:'🎓';font-size:90px;position:absolute;left:24px;top:50%;transform:translateY(-50%);opacity:.1}
+.welcome h2{font-size:22px;font-weight:900;margin-bottom:4px}
+.welcome p{font-size:13px;opacity:.8}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:24px}
+.stat{background:#fff;border-radius:16px;padding:18px;text-align:center;border:1px solid rgba(56,189,248,.15);box-shadow:0 2px 12px rgba(3,105,161,.06)}
+.stat-ico{font-size:24px;margin-bottom:6px}
+.stat-val{font-size:24px;font-weight:900;background:linear-gradient(135deg,var(--sky-deep),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1}
+.stat-lbl{font-size:11px;color:var(--light);font-weight:600;margin-top:3px}
+
+/* MY COURSES */
+.sec-ttl{font-size:17px;font-weight:900;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px;margin-bottom:32px}
+
+/* COURSE CARD */
+.course-card{background:#fff;border-radius:20px;overflow:hidden;border:1.5px solid rgba(56,189,248,.12);box-shadow:0 4px 20px rgba(3,105,161,.07);transition:transform .25s,box-shadow .25s;position:relative}
+.course-card:hover{transform:translateY(-5px);box-shadow:0 12px 40px rgba(3,105,161,.14)}
+.c-thumb{height:150px;display:flex;align-items:center;justify-content:center;font-size:44px;position:relative;overflow:hidden}
+.c-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.c-lock-badge{position:absolute;top:10px;left:10px;background:rgba(12,30,46,.75);backdrop-filter:blur(8px);color:#fff;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px}
+.c-owned-badge{position:absolute;top:10px;right:10px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700}
+.c-price-badge{position:absolute;bottom:10px;left:10px;background:rgba(12,30,46,.8);backdrop-filter:blur(8px);color:#fff;border-radius:8px;padding:5px 12px;font-size:13px;font-weight:900}
+.c-body{padding:16px 18px}
+.c-title{font-size:15px;font-weight:800;margin-bottom:3px;line-height:1.4}
+.c-meta{font-size:12px;color:var(--light);margin-bottom:8px}
+.c-desc{font-size:12px;color:var(--mid);line-height:1.6;margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.c-prog{height:5px;background:var(--sky-soft);border-radius:99px;overflow:hidden;margin-bottom:10px}
+.c-prog-bar{height:100%;background:linear-gradient(90deg,var(--sky-deep),var(--sky));border-radius:99px;transition:width .5s}
+.c-actions{display:flex;gap:8px}
+
+/* PAYMENT MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:none;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:22px;width:min(680px,100%);max-height:92vh;overflow-y:auto;position:relative}
+.m-head{padding:20px 26px;border-bottom:1px solid rgba(56,189,248,.15);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:10;border-radius:22px 22px 0 0}
+.m-head h3{font-size:16px;font-weight:900;display:flex;align-items:center;gap:8px}
+.m-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--light);width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.m-close:hover{background:var(--sky-soft)}
+.m-body{padding:22px 26px}
+
+/* PAYMENT FORM */
+.pay-tabs{display:flex;gap:8px;margin-bottom:18px}
+.pay-tab{padding:11px 24px;border-radius:11px;font-family:Cairo,sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all .2s;border:1.5px solid rgba(56,189,248,.3);color:var(--mid);background:transparent}
+.pay-tab.active{background:linear-gradient(135deg,var(--sky-deep),var(--blue));color:#fff;border-color:transparent;box-shadow:0 4px 14px rgba(14,165,233,.3)}
+.method-info-box{background:var(--off);border-radius:12px;padding:16px 20px;border:1px solid rgba(56,189,248,.2);margin-bottom:16px}
+.method-num{font-size:20px;font-weight:900;letter-spacing:1px;color:var(--blue-dark);margin-bottom:3px;word-break:break-all}
+.method-sub{font-size:12px;color:var(--light)}
+.step-row{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}
+.step-n{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--sky-deep),var(--blue));color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;margin-top:2px}
+
+/* UPLOAD ZONES */
+.upload-img-zone{border:2px dashed rgba(56,189,248,.4);border-radius:12px;padding:28px;text-align:center;cursor:pointer;transition:all .2s;position:relative;background:transparent}
+.upload-img-zone:hover{border-color:var(--sky-deep);background:var(--sky-soft)}
+.upload-img-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-img-zone.has-file{border-color:var(--green);background:rgba(16,185,129,.05)}
+
+.upload-pdf-zone{border:2px dashed rgba(139,92,246,.4);border-radius:12px;padding:28px;text-align:center;cursor:pointer;transition:all .2s;position:relative;background:transparent}
+.upload-pdf-zone:hover{border-color:var(--purple);background:rgba(139,92,246,.05)}
+.upload-pdf-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-pdf-zone.has-file{border-color:var(--green);background:rgba(16,185,129,.05)}
+
+/* LESSON MODAL */
+.lesson-modal{background:#fff;border-radius:22px;width:min(900px,100%);max-height:96vh;overflow-y:auto}
+.vid-wrap{position:relative;padding-bottom:56.25%;height:0;border-radius:14px;overflow:hidden;background:#000;margin-bottom:18px}
+.vid-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
+.vid-lock{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(12,30,46,.92);color:#fff;text-align:center;gap:14px;border-radius:14px}
+.vid-lock .lock-ico{font-size:48px}
+.vid-lock h3{font-size:18px;font-weight:900}
+.vid-lock p{font-size:13px;opacity:.75;max-width:280px;line-height:1.6}
+.lessons-list{display:flex;flex-direction:column;gap:8px}
+.lesson-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:11px;border:1.5px solid rgba(56,189,248,.12);cursor:pointer;transition:all .2s;background:#fff}
+.lesson-row:hover{background:var(--sky-soft);border-color:var(--sky-deep)}
+.lesson-row.active{background:var(--sky-soft);border-color:var(--sky-deep)}
+.l-num{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--sky-deep),var(--blue));color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
+.l-name{flex:1;font-size:13px;font-weight:700;line-height:1.4}
+.l-dur{font-size:11px;color:var(--light)}
+
+/* MY SUBSCRIPTIONS */
+.subs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-bottom:24px}
+.sub-item{background:#fff;border-radius:16px;padding:16px 18px;border:1.5px solid rgba(16,185,129,.25);box-shadow:0 2px 12px rgba(16,185,129,.08)}
+.sub-item-title{font-size:14px;font-weight:800;margin-bottom:4px}
+.sub-item-expiry{font-size:12px;color:var(--light)}
+
+/* TOAST */
+#toasts{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{padding:13px 20px;border-radius:11px;color:#fff;font-size:13px;font-weight:700;min-width:250px;animation:tin .3s ease;pointer-events:all}
+.toast-s{background:var(--green)}.toast-e{background:var(--red)}.toast-i{background:var(--sky-deep)}.toast-w{background:var(--orange)}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}}
+
+.empty-state{background:#fff;border-radius:18px;padding:48px;text-align:center;border:1px solid rgba(56,189,248,.12)}
+.empty-state .ico{font-size:52px;margin-bottom:14px}
+.empty-state p{font-size:14px;color:var(--light)}
+
+.prog-wrap{height:7px;background:rgba(56,189,248,.15);border-radius:99px;overflow:hidden;margin-top:6px}
+.prog-bar{height:100%;background:linear-gradient(90deg,var(--sky-deep),var(--sky));border-radius:99px;transition:width .4s}
+
+@media(max-width:600px){
+  .topbar{padding:0 4%}.main{padding:20px 4%}
+  .tb-right .uemail{display:none}
+}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spin"></div>
+  <p style="font-family:Cairo,sans-serif;font-size:14px;color:#64a5c8">جارٍ التحميل...</p>
+</div>
+
+<div id="app">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <a class="logo" href="index.html">🎓 <span>Atlas Academy</span></a>
+    <div class="tb-right">
+      <div style="text-align:right">
+        <div class="uname" id="uName">—</div>
+        <div class="uemail" id="uEmail"></div>
+      </div>
+      <div class="avatar" id="uAvatar">ط</div>
+      <button class="btn btn-outline" onclick="location.href='index.html'">← الرئيسية</button>
+      <button class="btn btn-red" onclick="logout()">خروج</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- WELCOME -->
+    <div class="welcome">
+      <h2 id="wMsg">مرحباً بك!</h2>
+      <p id="wSub">تابع دوراتك المشترك بها في Atlas Academy</p>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats">
+      <div class="stat"><div class="stat-ico">📚</div><div class="stat-val" id="sCourses">—</div><div class="stat-lbl">الدورات المتاحة</div></div>
+      <div class="stat"><div class="stat-ico">✅</div><div class="stat-val" id="sDone">0</div>   <div class="stat-lbl">الدروس المكتملة</div></div>
+      <div class="stat"><div class="stat-ico">🎓</div><div class="stat-val" id="sOwned">0</div>   <div class="stat-lbl">دوراتي المشتراة</div></div>
+      <div class="stat"><div class="stat-ico">⏳</div><div class="stat-val" id="sPending">0</div>  <div class="stat-lbl">طلبات معلقة</div></div>
+    </div>
+
+    <!-- MY SUBSCRIPTIONS -->
+    <div id="mySubsSection" style="display:none">
+      <div class="sec-ttl">✨ دوراتي المشترك بها</div>
+      <div class="subs-grid" id="mySubsGrid"></div>
+    </div>
+
+    <!-- ALL COURSES -->
+    <div class="sec-ttl">📖 جميع الدورات المتاحة</div>
+    <div class="grid" id="coursesGrid">
+      <div class="empty-state"><div class="ico">⏳</div><p>جارٍ تحميل الدورات...</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PAYMENT MODAL ===== -->
+<div class="overlay" id="payModal">
+  <div class="modal">
+    <div class="m-head">
+      <h3>💳 الاشتراك في الدورة</h3>
+      <button class="m-close" onclick="closePayModal()">✕</button>
+    </div>
+    <div class="m-body">
+      <!-- Course info -->
+      <div style="background:var(--off);border-radius:14px;padding:16px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px">
+        <div id="pmCourseThumb" style="width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;background:linear-gradient(135deg,#e0f2fe,#bae6fd)">📚</div>
+        <div>
+          <div style="font-size:15px;font-weight:900" id="pmCourseTitle">اسم الدورة</div>
+          <div style="font-size:12px;color:var(--light)" id="pmCourseMeta">—</div>
+          <div style="font-size:18px;font-weight:900;color:var(--sky-deep);margin-top:4px" id="pmCoursePrice">— دج</div>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div id="pmCourseDesc" style="font-size:13px;color:var(--mid);line-height:1.7;margin-bottom:20px;padding:14px 16px;background:rgba(224,242,254,.4);border-radius:11px;border-right:3px solid var(--sky-deep);display:none"></div>
+
+      <!-- Payment method tabs -->
+      <div style="font-size:14px;font-weight:800;margin-bottom:10px">اختر طريقة الدفع:</div>
+      <div class="pay-tabs" id="pmMethodTabs">
+        <!-- rendered dynamically -->
+      </div>
+
+      <!-- CCP method -->
+      <div id="pm-ccp" style="display:none">
+        <div class="step-row"><div class="step-n">1</div><p style="font-size:13px;color:var(--mid)">حوّل مبلغ <strong id="pmPriceCCP">—</strong> دج إلى حساب CCP التالي:</p></div>
+        <div class="method-info-box">
+          <div class="method-num" id="pmCcpNum">—</div>
+          <div class="method-sub" id="pmCcpOwner">—</div>
+        </div>
+        <div class="step-row"><div class="step-n">2</div><p style="font-size:13px;color:var(--mid)">صوّر <strong>وصل التحويل البريدي</strong> وارفع الصورة هنا:</p></div>
+        <label class="upload-img-zone" id="uploadImgZone">
+          <input type="file" id="receiptInputCCP" accept="image/*" onchange="onFileSelect(event,'ccp')">
+          <div id="imgUploadContent">
+            <div style="font-size:34px;margin-bottom:8px">📸</div>
+            <p style="font-size:13px;font-weight:700;color:var(--mid)">اضغط لرفع صورة الوصل</p>
+            <p style="font-size:11px;color:var(--light);margin-top:4px">JPG, PNG, WEBP فقط</p>
+          </div>
+        </label>
+      </div>
+
+      <!-- Baridimob method -->
+      <div id="pm-baridimob" style="display:none">
+        <div class="step-row"><div class="step-n">1</div><p style="font-size:13px;color:var(--mid)">حوّل مبلغ <strong id="pmPriceBaridi">—</strong> دج عبر <strong>تطبيق Baridimob</strong> إلى:</p></div>
+        <div class="method-info-box">
+          <div style="font-size:11px;font-weight:700;color:var(--light);margin-bottom:4px">RIP</div>
+          <div class="method-num" id="pmRip">—</div>
+          <div class="method-sub" id="pmRipOwner">—</div>
+        </div>
+        <div class="step-row"><div class="step-n">2</div><p style="font-size:13px;color:var(--mid)">ارفع <strong>لقطة شاشة من تطبيق بريدي موب</strong> (BDF — ملف PDF فقط):</p></div>
+        <label class="upload-pdf-zone" id="uploadPdfZone">
+          <input type="file" id="receiptInputBaridi" accept="application/pdf" onchange="onFileSelect(event,'baridimob')">
+          <div id="pdfUploadContent">
+            <div style="font-size:34px;margin-bottom:8px">📄</div>
+            <p style="font-size:13px;font-weight:700;color:var(--mid)">اضغط لرفع ملف BDF (PDF)</p>
+            <p style="font-size:11px;color:var(--light);margin-top:4px">PDF فقط — من تطبيق بريدي موب</p>
+          </div>
+        </label>
+      </div>
+
+      <!-- Upload progress -->
+      <div id="payUploadProg" style="display:none;margin:14px 0">
+        <div style="font-size:13px;color:var(--mid);margin-bottom:4px">جارٍ رفع الملف... <span id="payProgPct">0%</span></div>
+        <div class="prog-wrap"><div class="prog-bar" id="payProgBar" style="width:0%"></div></div>
+      </div>
+
+      <!-- Submit -->
+      <button class="btn btn-gold" id="submitPayBtn" style="width:100%;margin-top:16px;padding:14px;font-size:15px" onclick="submitPayment()">
+        إرسال طلب الاشتراك ←
+      </button>
+      <p style="font-size:11px;color:var(--light);text-align:center;margin-top:10px">سيتم مراجعة طلبك وتفعيل الاشتراك خلال 24 ساعة</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== LESSON MODAL ===== -->
+<div class="overlay" id="lessonModal">
+  <div class="lesson-modal">
+    <div class="m-head">
+      <h3 id="lessonModalTitle">—</h3>
+      <button class="m-close" onclick="closeLessonModal()">✕</button>
+    </div>
+    <div class="m-body" style="padding:20px 24px">
+      <div class="vid-wrap" id="vidWrap">
+        <iframe id="vidFrame" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+      </div>
+      <div id="pdfRow" style="display:none;margin-bottom:16px">
+        <a id="pdfLink" href="#" target="_blank" class="btn btn-blue" style="font-size:13px;display:inline-flex;align-items:center;gap:6px;text-decoration:none">📄 تحميل ملف PDF</a>
+      </div>
+      <div class="lessons-list" id="lessonsList"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+/* ===== FIREBASE ===== */
+const firebaseConfig = {
+  apiKey:            "AIzaSyBc0M_3R7xcOj-KT_xz8vvyR_9Ja8tQ-cM",
+  authDomain:        "atlas-academy-b2561.firebaseapp.com",
+  projectId:         "atlas-academy-b2561",
+  storageBucket:     "atlas-academy-b2561.firebasestorage.app",
+  messagingSenderId: "417787843371",
+  appId:             "1:417787843371:web:d8f7f96b37825507afeb6e"
+};
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const auth    = firebase.auth();
+const db      = firebase.firestore();
+const storage = firebase.storage();
+
+/* ===== STATE ===== */
+let me = null, myData = null;
+let allCourses = [];
+let done = new Set();
+let activeLessons = [], activeLessonIdx = 0;
+let currentCourse  = null;   // course object being purchased
+let payMethod      = 'ccp';
+let selectedFile   = null;
+let pendingCourses = new Set(); // courseIds with pending payment
+
+/* ===== BOOT ===== */
+auth.onAuthStateChanged(async user => {
+  if (!user) { location.href = 'index.html'; return; }
+  me = user;
+  await loadUser();
+  await loadCourses();
+  renderTopbar();
+  renderMySubscriptions();
+  hide('loading'); show('app');
+});
+
+async function loadUser() {
+  const snap = await db.collection('users').doc(me.uid).get();
+  if (snap.exists) {
+    myData = snap.data();
+  } else {
+    myData = { name: me.displayName||'', email: me.email, role:'student', subscription:'free', purchasedCourses:{} };
+    await db.collection('users').doc(me.uid).set({
+      ...myData, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
+  if (!myData.purchasedCourses) myData.purchasedCourses = {};
+  // Load completed lessons
+  const prog = await db.collection('progress').where('userId','==',me.uid).where('done','==',true).get();
+  prog.forEach(d => done.add(d.data().lessonId));
+  // Load pending payments to know which courses are awaiting
+  const pendingSnap = await db.collection('payments')
+    .where('userId','==',me.uid).where('status','==','pending').get();
+  pendingSnap.forEach(d => { if(d.data().courseId) pendingCourses.add(d.data().courseId); });
+}
+
+/* ===== TOPBAR ===== */
+function renderTopbar() {
+  const name = myData?.name || me.displayName || me.email;
+  setText('uName',  name);
+  setText('uEmail', me.email);
+  setText('uAvatar', (name[0]||'ط').toUpperCase());
+  setText('wMsg', `مرحباً، ${name}! 👋`);
+  setText('sDone', done.size);
+  const owned = Object.keys(myData?.purchasedCourses || {}).length;
+  setText('sOwned', owned);
+  setText('sPending', pendingCourses.size);
+}
+
+/* ===== MY SUBSCRIPTIONS ===== */
+function renderMySubscriptions() {
+  const purchased = myData?.purchasedCourses || {};
+  const section   = document.getElementById('mySubsSection');
+  const grid      = document.getElementById('mySubsGrid');
+
+  if (Object.keys(purchased).length === 0) {
+    section.style.display = 'none'; return;
+  }
+  section.style.display = 'block';
+
+  const items = Object.entries(purchased).map(([courseId, info]) => {
+    const course = allCourses.find(c => c.id === courseId);
+    const title  = course ? course.title : `دورة #${courseId.substring(0,6)}`;
+    const expiry = info.expiresAt?.toDate ? info.expiresAt.toDate().toLocaleDateString('ar-DZ') : '—';
+    return `<div class="sub-item">
+      <div class="sub-item-title">✅ ${title}</div>
+      <div class="sub-item-expiry">صالح حتى: ${expiry}</div>
+    </div>`;
+  });
+  grid.innerHTML = items.join('');
+}
+
+/* ===== COURSES ===== */
+async function loadCourses() {
+  try {
+    const snap = await db.collection('courses').orderBy('createdAt','desc').get();
+    allCourses = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+    setText('sCourses', allCourses.length);
+    renderCourses();
+  } catch(e) {
+    setText('sCourses', '0');
+    document.getElementById('coursesGrid').innerHTML =
+      '<div class="empty-state"><div class="ico">📭</div><p>لا توجد دورات متاحة حالياً</p></div>';
+  }
+}
+
+function isCourseOwned(course) {
+  if (!course.isPaid) return true; // free course
+  const purchased = myData?.purchasedCourses || {};
+  if (purchased[course.id]) {
+    const info = purchased[course.id];
+    if (info.expiresAt?.toDate) {
+      return info.expiresAt.toDate() > new Date();
+    }
+    return true;
+  }
+  return false;
+}
+
+function renderCourses() {
+  const grid = document.getElementById('coursesGrid');
+  if (!allCourses.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="ico">📭</div><p>لا توجد دورات متاحة حالياً</p></div>';
+    return;
+  }
+  const icons = {'علوم فيزيائية':'⚗️','رياضيات':'📐','علوم طبيعية':'🧬','اللغة العربية':'✍️','اللغة الفرنسية':'🇫🇷','اللغة الإنجليزية':'🇬🇧','التاريخ والجغرافيا':'🌍','الفلسفة':'🤔','الاقتصاد':'📊','تكنولوجيا':'🔩','إعلام آلي':'💻'};
+  grid.innerHTML = allCourses.map(c => {
+    const owned   = isCourseOwned(c);
+    const pending = pendingCourses.has(c.id);
+    const ico     = icons[c.subject] || '📚';
+    const bg      = c.color || 'linear-gradient(135deg,#e0f2fe,#bae6fd)';
+    const hasImg  = c.coverUrl ? true : false;
+
+    let actionBtn = '';
+    if (!c.isPaid || owned) {
+      actionBtn = `<button class="btn btn-blue" style="flex:1;font-size:12px" onclick="openCourse('${c.id}')">▶ ابدأ الدراسة</button>`;
+    } else if (pending) {
+      actionBtn = `<div style="flex:1;text-align:center;font-size:12px;font-weight:700;color:var(--orange);padding:8px;background:rgba(245,158,11,.08);border-radius:9px">⏳ طلبك قيد المراجعة</div>`;
+    } else {
+      actionBtn = `<button class="btn btn-gold" style="flex:1;font-size:12px" onclick="openPayModal('${c.id}')">💳 اشترك الآن — ${c.price||2500} دج</button>`;
+    }
+
+    return `<div class="course-card">
+      <div class="c-thumb" style="background:${bg}">
+        ${hasImg ? `<img src="${c.coverUrl}" alt="${c.title}" onerror="this.style.display='none'">` : `<span style="font-size:44px;position:relative;z-index:1">${ico}</span>`}
+        ${c.isPaid && !owned ? `<div class="c-lock-badge">🔒 مدفوع</div>` : ''}
+        ${owned && c.isPaid ? `<div class="c-owned-badge">✅ مشترك</div>` : ''}
+        ${c.isPaid ? `<div class="c-price-badge">${c.price||2500} دج</div>` : '<div class="c-price-badge" style="background:rgba(16,185,129,.85)">🆓 مجاني</div>'}
+      </div>
+      <div class="c-body">
+        <div class="c-title">${c.title}</div>
+        <div class="c-meta">${c.level||''} ${c.subject ? '• '+c.subject : ''} ${c.branch ? '• '+c.branch : ''}</div>
+        ${c.description ? `<div class="c-desc">${c.description}</div>` : ''}
+        ${owned ? `<div class="c-prog"><div class="c-prog-bar" style="width:0%"></div></div>` : ''}
+        <div class="c-actions">${actionBtn}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ===== OPEN PAYMENT MODAL ===== */
+async function openPayModal(courseId) {
+  currentCourse = allCourses.find(c => c.id === courseId);
+  if (!currentCourse) return;
+
+  selectedFile = null;
+  payMethod = null;
+
+  // Fill course info
+  setText('pmCourseTitle', currentCourse.title);
+  setText('pmCourseMeta',  `${currentCourse.level||''} ${currentCourse.subject ? '• '+currentCourse.subject : ''}`);
+  setText('pmCoursePrice', (currentCourse.price||2500) + ' دج');
+  setText('pmPriceCCP',    currentCourse.price||2500);
+  setText('pmPriceBaridi', currentCourse.price||2500);
+
+  // Cover thumbnail
+  const thumb = document.getElementById('pmCourseThumb');
+  if (currentCourse.coverUrl) {
+    thumb.innerHTML = `<img src="${currentCourse.coverUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:12px" onerror="this.innerHTML='📚'">`;
+  } else {
+    const icons = {'علوم فيزيائية':'⚗️','رياضيات':'📐','علوم طبيعية':'🧬','اللغة العربية':'✍️','اللغة الفرنسية':'🇫🇷','اللغة الإنجليزية':'🇬🇧'};
+    thumb.innerHTML = icons[currentCourse.subject] || '📚';
+    thumb.style.background = currentCourse.color || 'linear-gradient(135deg,#e0f2fe,#bae6fd)';
+  }
+
+  // Description
+  const descEl = document.getElementById('pmCourseDesc');
+  if (currentCourse.description) {
+    descEl.textContent = currentCourse.description;
+    descEl.style.display = 'block';
+  } else {
+    descEl.style.display = 'none';
+  }
+
+  // Payment methods
+  const useCCP       = currentCourse.useCCP       !== false;
+  const useBaridimob = currentCourse.useBaridimob !== false;
+
+  // Get payment info — course-specific or fallback to settings
+  let ccpNum   = currentCourse.ccpNumber   || '';
+  let ccpOwner = currentCourse.ccpOwner    || '';
+  let rip      = currentCourse.baridimobRip || '';
+  let ripOwner = currentCourse.baridimobOwner || '';
+
+  // Fallback: load from teacher settings or global settings
+  if (!ccpNum || !rip) {
+    try {
+      const teacherSettingsSnap = await db.collection('settings').doc(`teacher_${currentCourse.teacherId}`).get();
+      if (teacherSettingsSnap.exists) {
+        const ts = teacherSettingsSnap.data();
+        if (!ccpNum)   ccpNum   = ts.ccpNumber       || '';
+        if (!ccpOwner) ccpOwner = ts.ccpOwner        || '';
+        if (!rip)      rip      = ts.baridimobRip    || '';
+        if (!ripOwner) ripOwner = ts.baridimobOwner  || '';
+      }
+      if (!ccpNum || !rip) {
+        const globalSnap = await db.collection('settings').doc('payments').get();
+        if (globalSnap.exists) {
+          const g = globalSnap.data();
+          if (!ccpNum)   ccpNum   = g.ccpNumber       || '0041571485 Clé 46';
+          if (!ccpOwner) ccpOwner = g.ccpOwner        || '';
+          if (!rip)      rip      = g.baridimobRip    || '00799999004157148509';
+          if (!ripOwner) ripOwner = g.baridimobOwner  || '';
+        }
+      }
+    } catch(e) {}
+  }
+
+  setText('pmCcpNum',   ccpNum);
+  setText('pmCcpOwner', ccpOwner);
+  setText('pmRip',      rip);
+  setText('pmRipOwner', ripOwner);
+
+  // Render tabs
+  const tabsEl = document.getElementById('pmMethodTabs');
+  tabsEl.innerHTML = '';
+  if (useCCP) {
+    const btn = document.createElement('button');
+    btn.className = 'pay-tab active';
+    btn.innerHTML = '💳 CCP';
+    btn.onclick = () => switchPayMethod('ccp');
+    tabsEl.appendChild(btn);
+  }
+  if (useBaridimob) {
+    const btn = document.createElement('button');
+    btn.className = useCCP ? 'pay-tab' : 'pay-tab active';
+    btn.innerHTML = '📱 Baridimob';
+    btn.onclick = () => switchPayMethod('baridimob');
+    tabsEl.appendChild(btn);
+  }
+
+  // Set default method
+  if (useCCP) switchPayMethod('ccp');
+  else if (useBaridimob) switchPayMethod('baridimob');
+
+  // Reset upload zones
+  resetUploadZones();
+
+  hide('payUploadProg');
+  const submitBtn = document.getElementById('submitPayBtn');
+  if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'إرسال طلب الاشتراك ←'; }
+
+  document.getElementById('payModal').classList.add('open');
+}
+
+function closePayModal() {
+  document.getElementById('payModal').classList.remove('open');
+  currentCourse = null; selectedFile = null;
+}
+
+function switchPayMethod(method) {
+  payMethod = method;
+  document.getElementById('pm-ccp').style.display       = method === 'ccp'       ? 'block' : 'none';
+  document.getElementById('pm-baridimob').style.display = method === 'baridimob' ? 'block' : 'none';
+  document.querySelectorAll('.pay-tab').forEach(t => {
+    const isCcp   = t.innerHTML.includes('CCP');
+    const isBarid = t.innerHTML.includes('Baridimob');
+    t.classList.toggle('active', (method==='ccp' && isCcp) || (method==='baridimob' && isBarid));
+  });
+  selectedFile = null;
+}
+
+function resetUploadZones() {
+  const imgZone = document.getElementById('uploadImgZone');
+  const pdfZone = document.getElementById('uploadPdfZone');
+  if (imgZone) {
+    imgZone.classList.remove('has-file');
+    document.getElementById('imgUploadContent').innerHTML = `<div style="font-size:34px;margin-bottom:8px">📸</div><p style="font-size:13px;font-weight:700;color:var(--mid)">اضغط لرفع صورة الوصل</p><p style="font-size:11px;color:var(--light);margin-top:4px">JPG, PNG, WEBP فقط</p>`;
+  }
+  if (pdfZone) {
+    pdfZone.classList.remove('has-file');
+    document.getElementById('pdfUploadContent').innerHTML = `<div style="font-size:34px;margin-bottom:8px">📄</div><p style="font-size:13px;font-weight:700;color:var(--mid)">اضغط لرفع ملف BDF (PDF)</p><p style="font-size:11px;color:var(--light);margin-top:4px">PDF فقط — من تطبيق بريدي موب</p>`;
+  }
+}
+
+function onFileSelect(e, method) {
+  const file = e.target.files[0];
+  if (!file) return;
+  selectedFile = file;
+
+  if (method === 'ccp') {
+    // IMAGE ONLY for CCP
+    if (!file.type.startsWith('image/')) {
+      toast('يجب رفع صورة فقط (JPG, PNG, WEBP) لـ CCP', 'e');
+      selectedFile = null; return;
+    }
+    const zone = document.getElementById('uploadImgZone');
+    zone.classList.add('has-file');
+    document.getElementById('imgUploadContent').innerHTML = `<div style="font-size:30px;margin-bottom:6px">✅</div><p style="color:var(--green);font-weight:800;font-size:13px">${file.name}</p><p style="font-size:11px;color:var(--light);margin-top:4px">اضغط لتغيير الصورة</p>`;
+  } else {
+    // PDF ONLY for Baridimob
+    if (file.type !== 'application/pdf') {
+      toast('يجب رفع ملف PDF فقط لـ Baridimob (BDF من التطبيق)', 'e');
+      selectedFile = null; return;
+    }
+    const zone = document.getElementById('uploadPdfZone');
+    zone.classList.add('has-file');
+    document.getElementById('pdfUploadContent').innerHTML = `<div style="font-size:30px;margin-bottom:6px">✅</div><p style="color:var(--green);font-weight:800;font-size:13px">${file.name}</p><p style="font-size:11px;color:var(--light);margin-top:4px">اضغط لتغيير الملف</p>`;
+  }
+}
+
+/* ===== SUBMIT PAYMENT ===== */
+async function submitPayment() {
+  if (!selectedFile) {
+    if (payMethod === 'ccp') toast('ارفع صورة وصل التحويل أولاً 📸', 'w');
+    else toast('ارفع ملف PDF من بريدي موب أولاً 📄', 'w');
+    return;
+  }
+  if (!currentCourse) return;
+
+  const btn = document.getElementById('submitPayBtn');
+  btn.disabled = true; btn.textContent = '⏳ جارٍ الرفع...';
+  show('payUploadProg');
+
+  try {
+    const ext  = payMethod === 'ccp' ? selectedFile.name.split('.').pop() : 'pdf';
+    const path = `receipts/${me.uid}/${currentCourse.id}_${Date.now()}.${ext}`;
+    const ref  = storage.ref(path);
+    const task = ref.put(selectedFile);
+
+    await new Promise((res, rej) => {
+      task.on('state_changed',
+        snap => {
+          const pct = Math.round(snap.bytesTransferred / snap.totalBytes * 100);
+          document.getElementById('payProgBar').style.width = pct + '%';
+          setText('payProgPct', pct + '%');
+        }, rej, res);
+    });
+    const url = await task.snapshot.ref.getDownloadURL();
+    hide('payUploadProg');
+
+    await db.collection('payments').add({
+      userId:        me.uid,
+      userName:      myData.name || me.email,
+      userEmail:     me.email,
+      courseId:      currentCourse.id,
+      courseName:    currentCourse.title,
+      teacherId:     currentCourse.teacherId || '',
+      amount:        currentCourse.price || 2500,
+      receiptUrl:    url,
+      paymentMethod: payMethod,
+      status:        'pending',
+      submittedAt:   firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    await db.collection('users').doc(me.uid).update({
+      subscriptionPending: true,
+      [`pendingCourses.${currentCourse.id}`]: true
+    });
+
+    pendingCourses.add(currentCourse.id);
+    myData.subscriptionPending = true;
+
+    toast('تم إرسال طلبك ✅ سيتم التفعيل خلال 24 ساعة', 's');
+    closePayModal();
+    setText('sPending', pendingCourses.size);
+    renderCourses();
+  } catch(e) {
+    toast('فشل الرفع: ' + e.message, 'e');
+    hide('payUploadProg');
+    btn.disabled = false; btn.textContent = 'إرسال طلب الاشتراك ←';
+  }
+}
+
+/* ===== OPEN COURSE ===== */
+async function openCourse(courseId) {
+  const course = allCourses.find(c => c.id === courseId);
+  if (!course) return;
+  if (!isCourseOwned(course)) { openPayModal(courseId); return; }
+
+  const lessonsList = document.getElementById('lessonsList');
+  lessonsList.innerHTML = '<p style="text-align:center;padding:20px;color:var(--light)">جارٍ التحميل...</p>';
+  document.getElementById('lessonModal').classList.add('open');
+  setText('lessonModalTitle', course.title);
+  document.getElementById('vidWrap').style.display = 'none';
+
+  try {
+    const lSnap = await db.collection('lessons')
+      .where('courseId','==',courseId).orderBy('order','asc').get();
+    activeLessons = lSnap.docs.map(d => ({ id:d.id, ...d.data() }));
+
+    if (!activeLessons.length) {
+      lessonsList.innerHTML =
+        '<div style="text-align:center;padding:40px;color:var(--light)"><div style="font-size:44px;margin-bottom:10px">📭</div><p style="font-size:14px">لا توجد دروس في هذه الدورة بعد</p></div>';
+      return;
+    }
+    playLesson(0);
+  } catch(e) { toast('خطأ في تحميل الدروس: ' + e.message, 'e'); }
+}
+
+function playLesson(idx) {
+  activeLessonIdx = idx;
+  const lesson  = activeLessons[idx];
+  const owned   = isCourseOwned(allCourses.find(c => c.id === lesson.courseId) || {isPaid:false});
+  const locked  = lesson.isPaid && !owned;
+  const vidWrap = document.getElementById('vidWrap');
+  const pdfRow  = document.getElementById('pdfRow');
+  const pdfLink = document.getElementById('pdfLink');
+
+  if (locked) {
+    vidWrap.innerHTML = `<div class="vid-lock">
+      <div class="lock-ico">🔒</div>
+      <h3>محتوى مدفوع</h3>
+      <p>اشترك في هذه الدورة للوصول لهذا الدرس</p>
+      <button class="btn btn-gold" onclick="closeLessonModal();openPayModal('${lesson.courseId}')">اشترك الآن ✨</button>
+    </div>`;
+    pdfRow.style.display = 'none';
+  } else {
+    if (!document.getElementById('vidFrame')) {
+      vidWrap.innerHTML = '<iframe id="vidFrame" allowfullscreen allow="autoplay; encrypted-media" style="position:absolute;inset:0;width:100%;height:100%;border:none"></iframe>';
+    }
+    const url = lesson.videoUrl || '';
+    let embed  = '';
+    const yt = url.match(/(?:youtu\.be\/|[?&]v=|embed\/)([A-Za-z0-9_-]{11})/);
+    if (yt) embed = `https://www.youtube-nocookie.com/embed/${yt[1]}?rel=0&modestbranding=1`;
+    const vm = url.match(/vimeo\.com\/(\d+)/);
+    if (vm) embed = `https://player.vimeo.com/video/${vm[1]}`;
+    const frame = document.getElementById('vidFrame');
+    if (frame) frame.src = embed;
+    vidWrap.style.display = 'block';
+    markDone(lesson.id);
+    if (lesson.pdfUrl) {
+      pdfLink.href = lesson.pdfUrl; pdfRow.style.display = 'block';
+    } else {
+      pdfRow.style.display = 'none';
+    }
+  }
+
+  // Render lessons list
+  document.getElementById('lessonsList').innerHTML = activeLessons.map((l,i) => {
+    const lk = l.isPaid && !isCourseOwned(allCourses.find(c=>c.id===l.courseId)||{isPaid:false});
+    const dn = done.has(l.id);
+    return `<div class="lesson-row ${i===idx?'active':''}" onclick="playLesson(${i})">
+      <div class="l-num">${i+1}</div>
+      <div>
+        <div class="l-name">${l.title}</div>
+        ${l.duration ? `<div class="l-dur">⏱ ${l.duration}</div>` : ''}
+      </div>
+      <span style="font-size:16px;margin-right:auto">${lk?'🔒':dn?'✅':'▶️'}</span>
+    </div>`;
+  }).join('');
+}
+
+async function markDone(lessonId) {
+  if (done.has(lessonId)) return;
+  try {
+    await db.collection('progress').doc(`${me.uid}_${lessonId}`).set({
+      userId:me.uid, lessonId, done:true,
+      doneAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    done.add(lessonId);
+    setText('sDone', done.size);
+  } catch(e) {}
+}
+
+function closeLessonModal() {
+  document.getElementById('lessonModal').classList.remove('open');
+  const f = document.getElementById('vidFrame');
+  if (f) f.src = '';
+  activeLessons = [];
+}
+
+/* ===== AUTH ===== */
+async function logout() { await auth.signOut(); location.href = 'index.html'; }
+
+/* ===== HELPERS ===== */
+function show(id){ const e=document.getElementById(id); if(e) e.style.display='block'; }
+function hide(id){ const e=document.getElementById(id); if(e) e.style.display='none'; }
+function setText(id,v){ const el=document.getElementById(id); if(el) el.textContent=v; }
+function toast(msg,type='i'){
+  const c=document.getElementById('toasts');
+  const t=document.createElement('div');
+  t.className=`toast toast-${type}`; t.textContent=msg; c.appendChild(t);
+  setTimeout(()=>t.remove(), 4500);
+}
+</script>
+</body>
+</html>
