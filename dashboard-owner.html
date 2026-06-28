@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>لوحة مالك المنصة — Atlas Academy</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+<style>
+:root{
+  --sky:#38bdf8;--sky-soft:#e0f2fe;--sky-deep:#0ea5e9;
+  --blue:#0369a1;--dark:#0c4a6e;--off:#f0f9ff;
+  --mid:#334e68;--light:#64a5c8;
+  --green:#10b981;--red:#ef4444;--orange:#f59e0b;--purple:#8b5cf6;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Cairo',sans-serif;background:var(--off);color:var(--dark);min-height:100vh}
+
+#loading{position:fixed;inset:0;background:var(--off);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:9999}
+.spin{width:48px;height:48px;border:4px solid rgba(56,189,248,.2);border-top-color:var(--sky-deep);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#app{display:none}
+
+.topbar{position:sticky;top:0;z-index:100;height:68px;background:linear-gradient(135deg,var(--dark),#075985);border-bottom:1px solid rgba(56,189,248,.25);padding:0 5%;display:flex;align-items:center;justify-content:space-between;box-shadow:0 4px 28px rgba(3,105,161,.2)}
+.logo{font-size:18px;font-weight:900;color:#fff;display:flex;align-items:center;gap:8px}
+.logo .brand{background:linear-gradient(135deg,var(--sky),#67e8f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.owner-badge{background:linear-gradient(135deg,#fbbf24,#d97706);color:#fff;padding:5px 14px;border-radius:100px;font-size:12px;font-weight:900;display:flex;align-items:center;gap:5px}
+.tb-right{display:flex;align-items:center;gap:12px}
+.btn{padding:9px 18px;border-radius:9px;font-family:'Cairo',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all .2s;border:none}
+.btn-red{border:1.5px solid rgba(239,68,68,.4)!important;color:#fca5a5;background:rgba(239,68,68,.1)}
+.btn-red:hover{background:rgba(239,68,68,.2)}
+.btn-blue{background:linear-gradient(135deg,var(--sky-deep),var(--blue));color:#fff}
+.btn-blue:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(14,165,233,.4)}
+.btn-green{background:linear-gradient(135deg,var(--green),#059669);color:#fff}
+.btn-green:hover{transform:translateY(-2px)}
+.btn-orange{background:linear-gradient(135deg,var(--orange),#d97706);color:#fff}
+.btn-orange:hover{transform:translateY(-2px)}
+.btn-purple{background:linear-gradient(135deg,var(--purple),#7c3aed);color:#fff}
+.btn-purple:hover{transform:translateY(-2px)}
+.btn-outline{border:1.5px solid rgba(56,189,248,.4)!important;color:var(--sky-deep);background:transparent}
+.btn-outline:hover{background:var(--sky-soft)}
+.btn-sm{padding:7px 14px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+.layout{display:flex;min-height:calc(100vh - 68px)}
+
+.sidebar{width:240px;flex-shrink:0;background:#fff;border-left:1px solid rgba(56,189,248,.15);padding:20px 14px;display:flex;flex-direction:column;gap:4px;position:sticky;top:68px;height:calc(100vh - 68px);overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:11px;cursor:pointer;transition:all .2s;color:var(--mid);font-size:13.5px;font-weight:700;border:none;background:none;width:100%;text-align:right}
+.nav-item:hover{background:var(--sky-soft);color:var(--sky-deep)}
+.nav-item.active{background:var(--sky-soft);color:var(--sky-deep);border:1px solid rgba(56,189,248,.25)}
+.nav-item .ico{font-size:18px;width:24px;text-align:center}
+.nav-badge{margin-right:auto;background:var(--red);color:#fff;border-radius:100px;padding:1px 7px;font-size:11px;font-weight:900}
+.nav-sep{height:1px;background:rgba(56,189,248,.12);margin:8px 4px}
+.nav-section-label{font-size:10.5px;font-weight:800;color:var(--light);text-transform:uppercase;letter-spacing:.8px;padding:8px 14px 4px}
+
+.content{flex:1;padding:32px 4%;overflow:auto}
+
+/* STATS */
+.stats-hero{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px}
+.stat-hero{border-radius:18px;padding:22px;color:#fff;position:relative;overflow:hidden}
+.stat-hero::before{content:'';position:absolute;inset:0;background:rgba(255,255,255,.06)}
+.stat-hero .stat-ico{font-size:28px;margin-bottom:8px}
+.stat-hero .stat-val{font-size:32px;font-weight:900;line-height:1}
+.stat-hero .stat-lbl{font-size:12px;opacity:.8;font-weight:600;margin-top:3px}
+.sh-blue{background:linear-gradient(135deg,var(--sky-deep),var(--blue))}
+.sh-green{background:linear-gradient(135deg,var(--green),#059669)}
+.sh-orange{background:linear-gradient(135deg,var(--orange),#d97706)}
+.sh-purple{background:linear-gradient(135deg,var(--purple),#7c3aed)}
+.sh-red{background:linear-gradient(135deg,var(--red),#dc2626)}
+.sh-dark{background:linear-gradient(135deg,var(--dark),#075985)}
+
+.stats-secondary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:28px}
+.stat-s{background:#fff;border-radius:14px;padding:16px;text-align:center;border:1px solid rgba(56,189,248,.15);box-shadow:0 2px 12px rgba(3,105,161,.06)}
+.stat-s .val{font-size:24px;font-weight:900;background:linear-gradient(135deg,var(--sky-deep),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-s .lbl{font-size:11px;color:var(--light);font-weight:600;margin-top:2px}
+
+.sec-ttl{font-size:17px;font-weight:900;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.card{background:#fff;border-radius:18px;padding:24px;border:1px solid rgba(56,189,248,.15);box-shadow:0 4px 20px rgba(3,105,161,.07);margin-bottom:22px}
+
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{padding:11px 14px;text-align:right;font-weight:800;color:var(--light);font-size:12px;background:var(--off);border-bottom:1px solid rgba(56,189,248,.15)}
+.tbl td{padding:11px 14px;border-bottom:1px solid rgba(56,189,248,.08);vertical-align:middle}
+.tbl tr:last-child td{border:none}
+.tbl tr:hover td{background:rgba(224,242,254,.4)}
+.status-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:100px;font-size:11px;font-weight:800;white-space:nowrap}
+.s-pending{background:rgba(245,158,11,.12);color:var(--orange)}
+.s-gold{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#fff}
+.s-free{background:rgba(100,165,200,.12);color:var(--mid)}
+.s-approved{background:rgba(16,185,129,.12);color:var(--green)}
+.s-rejected{background:rgba(239,68,68,.12);color:var(--red)}
+.s-teacher{background:linear-gradient(135deg,var(--purple),#7c3aed);color:#fff}
+.s-admin{background:linear-gradient(135deg,#fbbf24,#d97706);color:#fff}
+
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.form-row.one{grid-template-columns:1fr}
+.form-row.three{grid-template-columns:1fr 1fr 1fr}
+.fld{display:flex;flex-direction:column;gap:6px}
+.fld label{font-size:13px;font-weight:700;color:var(--mid)}
+.fld input,.fld select,.fld textarea{padding:11px 14px;border:1.5px solid rgba(56,189,248,.25);border-radius:10px;font-family:'Cairo',sans-serif;font-size:13px;color:var(--dark);background:#fff;transition:border-color .2s;outline:none}
+.fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--sky-deep)}
+.fld textarea{resize:vertical;min-height:80px}
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:none;align-items:center;justify-content:center;padding:16px}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:22px;width:min(680px,96%);max-height:92vh;overflow-y:auto}
+.m-head{padding:20px 24px;border-bottom:1px solid rgba(56,189,248,.15);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:10;border-radius:22px 22px 0 0}
+.m-head h3{font-size:16px;font-weight:900}
+.m-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--light);width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center}
+.m-close:hover{background:var(--sky-soft)}
+.m-body{padding:22px 24px}
+
+#toasts{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{padding:13px 20px;border-radius:11px;color:#fff;font-size:13px;font-weight:700;min-width:250px;animation:tin .3s ease;pointer-events:all}
+.toast-s{background:var(--green)}.toast-e{background:var(--red)}.toast-i{background:var(--sky-deep)}.toast-w{background:var(--orange)}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}}
+
+.tab-row{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.tab-btn2{padding:9px 18px;border-radius:9px;border:1.5px solid rgba(56,189,248,.3);background:transparent;color:var(--mid);font-family:'Cairo',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all .2s}
+.tab-btn2.active{background:linear-gradient(135deg,var(--sky-deep),var(--blue));color:#fff;border-color:transparent;box-shadow:0 4px 12px rgba(14,165,233,.3)}
+.tab-btn2:hover:not(.active){background:var(--sky-soft);color:var(--sky-deep)}
+
+.empty{text-align:center;padding:40px;color:var(--light)}
+.empty .ico{font-size:44px;margin-bottom:10px}
+
+.switch-group{display:flex;align-items:center;gap:12px;padding:12px 16px;background:rgba(56,189,248,.05);border-radius:10px;border:1px solid rgba(56,189,248,.12);margin-bottom:10px}
+.switch{position:relative;width:44px;height:24px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:#ddd;border-radius:24px;cursor:pointer;transition:.3s}
+.slider:before{content:'';position:absolute;width:18px;height:18px;right:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+input:checked + .slider{background:var(--sky-deep)}
+input:checked + .slider:before{right:unset;left:3px}
+
+/* Chart placeholder */
+.chart-placeholder{height:200px;background:linear-gradient(135deg,rgba(14,165,233,.05),rgba(56,189,248,.03));border-radius:14px;display:flex;align-items:center;justify-content:center;border:1px dashed rgba(56,189,248,.2);color:var(--light);font-size:14px;font-weight:700;flex-direction:column;gap:8px}
+
+.receipt-img{width:100%;border-radius:12px;max-height:400px;object-fit:contain;background:#f8f8f8;border:1px solid rgba(56,189,248,.15)}
+
+@media(max-width:768px){
+  .sidebar{display:none}
+  .form-row,.form-row.three{grid-template-columns:1fr}
+  .content{padding:20px 4%}
+  .stats-hero,.stats-secondary{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spin"></div>
+  <p style="font-family:Cairo,sans-serif;font-size:14px;color:#64a5c8">التحقق من صلاحيات المالك...</p>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div class="logo">👑 <span class="brand">Atlas Academy</span></div>
+    <div class="tb-right">
+      <span class="owner-badge">👑 مالك المنصة</span>
+      <button class="btn btn-red" onclick="logout()">خروج</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="sidebar">
+      <div class="nav-section-label">لوحة التحكم</div>
+      <button class="nav-item active" onclick="switchTab('overview')"   id="tab-overview"> <span class="ico">📊</span> نظرة عامة</button>
+      <button class="nav-item"        onclick="switchTab('payments')"   id="tab-payments"> <span class="ico">💳</span> طلبات الدفع <span class="nav-badge" id="pendingCount" style="display:none">0</span></button>
+
+      <div class="nav-sep"></div>
+      <div class="nav-section-label">المحتوى</div>
+      <button class="nav-item"        onclick="switchTab('courses')"    id="tab-courses">  <span class="ico">📚</span> جميع الدورات</button>
+      <button class="nav-item"        onclick="switchTab('teachers')"   id="tab-teachers"> <span class="ico">👨‍🏫</span> الأساتذة</button>
+      <button class="nav-item"        onclick="switchTab('students')"   id="tab-students"> <span class="ico">👥</span> الطلاب</button>
+
+      <div class="nav-sep"></div>
+      <div class="nav-section-label">الإعدادات</div>
+      <button class="nav-item"        onclick="switchTab('roles')"      id="tab-roles">    <span class="ico">🔑</span> إدارة الأدوار</button>
+      <button class="nav-item"        onclick="switchTab('platform')"   id="tab-platform"> <span class="ico">🌐</span> إعدادات المنصة</button>
+      <button class="nav-item"        onclick="switchTab('global-pay')" id="tab-global-pay"><span class="ico">⚙️</span> إعدادات الدفع</button>
+    </div>
+
+    <div class="content">
+
+      <!-- ===== OVERVIEW ===== -->
+      <div id="pane-overview">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-size:20px;font-weight:900">مرحباً، مالك المنصة 👑</div>
+            <div style="font-size:13px;color:var(--light)">نظرة شاملة على Atlas Academy</div>
+          </div>
+          <button class="btn btn-blue" onclick="refreshAll()">🔄 تحديث البيانات</button>
+        </div>
+
+        <div class="stats-hero">
+          <div class="stat-hero sh-blue">  <div class="stat-ico">👥</div><div class="stat-val" id="ovStudents">—</div><div class="stat-lbl">إجمالي الطلاب</div></div>
+          <div class="stat-hero sh-green"> <div class="stat-ico">✅</div><div class="stat-val" id="ovGold">—</div>    <div class="stat-lbl">طلبات مقبولة</div></div>
+          <div class="stat-hero sh-orange"><div class="stat-ico">⏳</div><div class="stat-val" id="ovPending">—</div>  <div class="stat-lbl">طلبات معلقة</div></div>
+          <div class="stat-hero sh-purple"><div class="stat-ico">📚</div><div class="stat-val" id="ovCourses">—</div>  <div class="stat-lbl">إجمالي الدورات</div></div>
+          <div class="stat-hero sh-dark">  <div class="stat-ico">👨‍🏫</div><div class="stat-val" id="ovTeachers">—</div><div class="stat-lbl">الأساتذة</div></div>
+          <div class="stat-hero sh-red">   <div class="stat-ico">💰</div><div class="stat-val" id="ovRevenue">—</div><div class="stat-lbl">الإيرادات (دج)</div></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          <div class="card">
+            <div class="sec-ttl">⏳ آخر طلبات الدفع</div>
+            <div id="ovRecentPayments"><p class="empty">جارٍ التحميل...</p></div>
+          </div>
+          <div class="card">
+            <div class="sec-ttl">📚 آخر الدورات المضافة</div>
+            <div id="ovRecentCourses"><p class="empty">جارٍ التحميل...</p></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PAYMENTS ===== -->
+      <div id="pane-payments" style="display:none">
+        <div class="sec-ttl">💳 جميع طلبات الاشتراك</div>
+        <div class="tab-row">
+          <button class="tab-btn2 active" onclick="loadPayments('pending');   setAT(this)">⏳ معلقة</button>
+          <button class="tab-btn2"        onclick="loadPayments('approved');  setAT(this)">✅ مقبولة</button>
+          <button class="tab-btn2"        onclick="loadPayments('rejected');  setAT(this)">❌ مرفوضة</button>
+          <button class="tab-btn2"        onclick="loadPayments('all');       setAT(this)">الكل</button>
+        </div>
+        <div class="card" style="overflow-x:auto">
+          <table class="tbl">
+            <thead><tr>
+              <th>الطالب</th><th>الدورة / الأستاذ</th><th>طريقة الدفع</th><th>المبلغ</th><th>التاريخ</th><th>الحالة</th><th>الوصل</th><th>إجراء</th>
+            </tr></thead>
+            <tbody id="paymentsTbody">
+              <tr><td colspan="8" class="empty"><div class="ico">⏳</div><p>جارٍ التحميل...</p></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===== COURSES ===== -->
+      <div id="pane-courses" style="display:none">
+        <div class="sec-ttl">📚 جميع الدورات</div>
+        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+          <button class="tab-btn2 active" onclick="loadCourses('all');    setAT(this)">الكل</button>
+          <button class="tab-btn2"        onclick="loadCourses('paid');   setAT(this)">🔒 مدفوعة</button>
+          <button class="tab-btn2"        onclick="loadCourses('free');   setAT(this)">🆓 مجانية</button>
+        </div>
+        <div class="card" style="overflow-x:auto">
+          <table class="tbl">
+            <thead><tr><th>عنوان الدورة</th><th>الأستاذ</th><th>المستوى</th><th>المادة</th><th>السعر</th><th>النوع</th><th>CCP</th><th>Baridimob</th><th>إجراء</th></tr></thead>
+            <tbody id="coursesTbody">
+              <tr><td colspan="9" class="empty"><div class="ico">⏳</div><p>جارٍ التحميل...</p></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===== TEACHERS ===== -->
+      <div id="pane-teachers" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px">
+          <div class="sec-ttl" style="margin-bottom:0">👨‍🏫 الأساتذة</div>
+          <button class="btn btn-green" onclick="openAddTeacherModal()">➕ إضافة أستاذ</button>
+        </div>
+
+        <!-- Stats for teachers -->
+        <div class="stats-secondary" style="margin-bottom:18px">
+          <div class="stat-s"><div class="val" id="tStatTotal">—</div><div class="lbl">إجمالي الأساتذة</div></div>
+          <div class="stat-s"><div class="val" id="tStatCourses">—</div><div class="lbl">إجمالي الدورات</div></div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-bottom:16px">
+          <input type="text" id="teacherSearch" placeholder="بحث بالاسم أو البريد..." onkeyup="searchTeachers()" style="padding:9px 14px;border:1.5px solid rgba(56,189,248,.25);border-radius:10px;font-family:Cairo,sans-serif;font-size:13px;flex:1;outline:none">
+        </div>
+
+        <div class="card" style="overflow-x:auto">
+          <table class="tbl">
+            <thead><tr><th>الاسم</th><th>البريد</th><th>عدد الدورات</th><th>الدور</th><th>تاريخ الانضمام</th><th>إجراءات</th></tr></thead>
+            <tbody id="teachersTbody">
+              <tr><td colspan="6" class="empty"><div class="ico">⏳</div><p>جارٍ التحميل...</p></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ADD TEACHER MODAL -->
+      <div class="overlay" id="addTeacherModal">
+        <div class="modal">
+          <div class="m-head">
+            <h3>➕ إضافة أستاذ جديد</h3>
+            <button class="m-close" onclick="closeAddTeacherModal()">✕</button>
+          </div>
+          <div class="m-body">
+            <p style="font-size:13px;color:var(--mid);margin-bottom:18px;line-height:1.7;background:var(--sky-soft);padding:12px;border-radius:10px">
+              أدخل بريد المستخدم المسجّل لترقيته إلى أستاذ، أو أدخل بياناته لإنشاء حساب أستاذ جديد بالبريد والكلمة السرية.
+            </p>
+            <div class="tab-row" id="addTeacherTabRow">
+              <button class="tab-btn2 active" onclick="switchAddTeacherMode('existing', this)">ترقية حساب موجود</button>
+              <button class="tab-btn2" onclick="switchAddTeacherMode('new', this)">إنشاء حساب جديد</button>
+            </div>
+
+            <!-- Mode: promote existing -->
+            <div id="addTeacherExisting">
+              <div class="form-row one">
+                <div class="fld"><label>البريد الإلكتروني للمستخدم</label><input type="email" id="atExistingEmail" placeholder="example@email.com"></div>
+              </div>
+              <button class="btn btn-orange" style="width:100%" onclick="promoteExistingToTeacher()">🔑 ترقية إلى أستاذ ←</button>
+            </div>
+
+            <!-- Mode: create new -->
+            <div id="addTeacherNew" style="display:none">
+              <div class="form-row">
+                <div class="fld"><label>اسم الأستاذ</label><input type="text" id="atNewName" placeholder="الاسم الكامل"></div>
+                <div class="fld"><label>البريد الإلكتروني</label><input type="email" id="atNewEmail" placeholder="teacher@email.com"></div>
+              </div>
+              <div class="form-row">
+                <div class="fld"><label>كلمة المرور</label><input type="password" id="atNewPass" placeholder="8 أحرف على الأقل"></div>
+                <div class="fld"><label>المادة الدراسية</label><input type="text" id="atNewSubject" placeholder="مثل: رياضيات، فيزياء..."></div>
+              </div>
+              <button class="btn btn-green" style="width:100%" onclick="createNewTeacher()">✅ إنشاء حساب الأستاذ</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== STUDENTS ===== -->
+      <div id="pane-students" style="display:none">
+        <div class="sec-ttl">👥 جميع الطلاب</div>
+        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+          <button class="tab-btn2 active" onclick="loadStudents('all');     setAT(this)">الكل</button>
+          <button class="tab-btn2"        onclick="loadStudents('subscribed'); setAT(this)">✅ مشتركون بدورة</button>
+          <button class="tab-btn2"        onclick="loadStudents('pending'); setAT(this)">⏳ معلقون</button>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:16px">
+          <input type="text" id="studentSearch" placeholder="بحث بالاسم أو البريد..." onkeyup="searchStudents()" style="padding:9px 14px;border:1.5px solid rgba(56,189,248,.25);border-radius:10px;font-family:Cairo,sans-serif;font-size:13px;flex:1;outline:none">
+        </div>
+        <div class="card" style="overflow-x:auto">
+          <table class="tbl">
+            <thead><tr><th>الاسم</th><th>البريد</th><th>الدورات المشترك بها</th><th>الاشتراك</th><th>تاريخ الانضمام</th><th>إجراء</th></tr></thead>
+            <tbody id="studentsTbody">
+              <tr><td colspan="6" class="empty"><div class="ico">⏳</div><p>جارٍ التحميل...</p></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===== ROLES ===== -->
+      <div id="pane-roles" style="display:none">
+        <div class="sec-ttl">🔑 إدارة الأدوار والصلاحيات</div>
+
+        <div class="card">
+          <div class="sec-ttl" style="font-size:15px">➕ منح دور لمستخدم</div>
+          <p style="font-size:13px;color:var(--mid);margin-bottom:16px;line-height:1.7">أدخل البريد الإلكتروني للمستخدم وحدد الدور. يجب أن يكون لديه حساب مسجّل مسبقاً في المنصة.</p>
+          <div class="form-row">
+            <div class="fld"><label>البريد الإلكتروني</label><input type="email" id="promoteEmail" placeholder="example@email.com"></div>
+            <div class="fld"><label>الدور الجديد</label>
+              <select id="promoteRole">
+                <option value="teacher">👨‍🏫 أستاذ (teacher)</option>
+                <option value="admin">👑 مدير (admin)</option>
+                <option value="student">👤 طالب (student)</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-orange" onclick="promoteUser()">🔑 تغيير الدور ←</button>
+        </div>
+
+        <div class="card">
+          <div class="sec-ttl" style="font-size:15px">📋 قائمة المديرين والأساتذة</div>
+          <div class="card" style="overflow-x:auto;box-shadow:none;padding:0;border:none">
+            <table class="tbl">
+              <thead><tr><th>الاسم</th><th>البريد</th><th>الدور</th><th>تاريخ الانضمام</th><th>إجراء</th></tr></thead>
+              <tbody id="adminTeacherTbody">
+                <tr><td colspan="5" class="empty"><div class="ico">⏳</div><p>جارٍ التحميل...</p></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PLATFORM SETTINGS ===== -->
+      <div id="pane-platform" style="display:none">
+        <div class="sec-ttl">🌐 إعدادات المنصة</div>
+
+        <div class="card">
+          <div class="sec-ttl" style="font-size:15px">📋 معلومات المنصة</div>
+          <div class="form-row">
+            <div class="fld"><label>اسم المنصة</label><input type="text" id="pName" value="Atlas Academy"></div>
+            <div class="fld"><label>الشعار / الوصف القصير</label><input type="text" id="pTagline" placeholder="منصة التعلم المتميز في الجزائر"></div>
+          </div>
+          <div class="form-row one">
+            <div class="fld"><label>وصف المنصة</label>
+              <textarea id="pDesc" rows="3" placeholder="وصف شامل عن المنصة..."></textarea>
+            </div>
+          </div>
+          <button class="btn btn-blue" onclick="savePlatformSettings()">حفظ ✓</button>
+        </div>
+
+        <div class="card">
+          <div class="sec-ttl" style="font-size:15px">🔔 إعدادات الإشعارات والأمان</div>
+          <div class="switch-group">
+            <label class="switch"><input type="checkbox" id="sNotifEmail" checked><span class="slider"></span></label>
+            <div><div style="font-size:13px;font-weight:700">إشعارات البريد الإلكتروني</div><div style="font-size:11px;color:var(--light)">إرسال إشعار للأستاذ عند وصول طلب دفع جديد</div></div>
+          </div>
+          <div class="switch-group">
+            <label class="switch"><input type="checkbox" id="sAutoApprove"><span class="slider"></span></label>
+            <div><div style="font-size:13px;font-weight:700">القبول التلقائي</div><div style="font-size:11px;color:var(--light)">قبول الاشتراكات تلقائياً (غير موصى به)</div></div>
+          </div>
+          <div class="switch-group">
+            <label class="switch"><input type="checkbox" id="sMaintenanceMode"><span class="slider"></span></label>
+            <div><div style="font-size:13px;font-weight:700;color:var(--red)">وضع الصيانة</div><div style="font-size:11px;color:var(--light)">تعطيل الوصول للمنصة مؤقتاً</div></div>
+          </div>
+          <button class="btn btn-blue" onclick="savePlatformNotifs()" style="margin-top:10px">حفظ ✓</button>
+        </div>
+      </div>
+
+      <!-- ===== GLOBAL PAYMENT SETTINGS ===== -->
+      <div id="pane-global-pay" style="display:none">
+        <div class="sec-ttl">⚙️ إعدادات الدفع العامة للمنصة</div>
+
+        <div class="card">
+          <div class="sec-ttl" style="font-size:15px">💳 حساب CCP الافتراضي</div>
+          <p style="font-size:13px;color:var(--mid);margin-bottom:16px;line-height:1.7">هذه الإعدادات تُستخدم كإعدادات افتراضية للأساتذة الذين لم يحددوا حساباتهم الخاصة.</p>
+          <div class="form-row">
+            <div class="fld"><label>رقم حساب CCP</label><input type="text" id="gsCcpNum" placeholder="0041571485 Clé 46"></div>
+            <div class="fld"><label>اسم صاحب الحساب</label><input type="text" id="gsCcpOwner" placeholder="أشرف مدور — سطيف"></div>
+          </div>
+          <div class="sec-ttl" style="font-size:15px;margin-top:8px">📱 حساب Baridimob الافتراضي</div>
+          <div class="form-row">
+            <div class="fld"><label>رقم RIP</label><input type="text" id="gsRip" placeholder="00799999004157148509"></div>
+            <div class="fld"><label>اسم صاحب الحساب</label><input type="text" id="gsRipOwner" placeholder="أشرف مدور"></div>
+          </div>
+          <button class="btn btn-blue" onclick="saveGlobalPaySettings()">حفظ الإعدادات ✓</button>
+        </div>
+      </div>
+
+    </div><!-- end content -->
+  </div><!-- end layout -->
+</div><!-- end app -->
+
+<!-- RECEIPT MODAL -->
+<div class="overlay" id="receiptModal">
+  <div class="modal">
+    <div class="m-head">
+      <h3 id="receiptName">وصل الدفع</h3>
+      <button class="m-close" onclick="closeReceiptModal()">✕</button>
+    </div>
+    <div class="m-body">
+      <div style="margin-bottom:14px;padding:12px 16px;background:var(--off);border-radius:10px;font-size:13px;color:var(--mid)">
+        <strong>الدورة:</strong> <span id="receiptCourse">—</span> &nbsp;|&nbsp;
+        <strong>المبلغ:</strong> <span id="receiptAmount">—</span> &nbsp;|&nbsp;
+        <strong>طريقة الدفع:</strong> <span id="receiptMethod">—</span>
+      </div>
+      <img id="receiptImg" src="" class="receipt-img" style="margin-bottom:16px;display:none" onerror="this.style.display='none'">
+      <div id="receiptPdfLink" style="display:none;margin-bottom:16px">
+        <a id="receiptPdfHref" href="#" target="_blank" class="btn btn-blue" style="display:inline-block;text-decoration:none">📄 فتح ملف الإثبات</a>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-green" style="flex:1" id="approveBtn" onclick="processPayment('approved')">✅ قبول وتفعيل</button>
+        <button class="btn btn-red"   style="flex:1" id="rejectBtn"  onclick="processPayment('rejected')">❌ رفض</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+/* ===== FIREBASE ===== */
+const firebaseConfig = {
+  apiKey:            "AIzaSyBc0M_3R7xcOj-KT_xz8vvyR_9Ja8tQ-cM",
+  authDomain:        "atlas-academy-b2561.firebaseapp.com",
+  projectId:         "atlas-academy-b2561",
+  storageBucket:     "atlas-academy-b2561.firebasestorage.app",
+  messagingSenderId: "417787843371",
+  appId:             "1:417787843371:web:d8f7f96b37825507afeb6e"
+};
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+/* ===== STATE ===== */
+let me = null, myRole = null;
+let currentPaymentId = null, currentPaymentUserId = null;
+let allStudents = [];
+
+/* ===== BOOT ===== */
+auth.onAuthStateChanged(async user => {
+  if (!user) { location.href = 'index.html'; return; }
+  me = user;
+  const snap = await db.collection('users').doc(me.uid).get();
+  if (!snap.exists) { location.href = 'index.html'; return; }
+  myRole = snap.data().role;
+
+  // Only admin can access
+  if (myRole !== 'admin') {
+    if (myRole === 'teacher') { location.href = 'dashboard-teacher.html'; return; }
+    location.href = 'dashboard-student.html'; return;
+  }
+
+  await Promise.all([ loadOverview(), loadGlobalPaySettings() ]);
+  loadPayments('pending');
+  hide('loading'); show('app');
+});
+
+/* ===== HELPERS ===== */
+function show(id){ const e=document.getElementById(id); if(e) e.style.display='block'; }
+function hide(id){ const e=document.getElementById(id); if(e) e.style.display='none'; }
+function setText(id,v){ const e=document.getElementById(id); if(e) e.textContent=v; }
+function val(id){ return document.getElementById(id)?.value?.trim()||''; }
+function toast(msg, type='i'){
+  const c=document.getElementById('toasts');
+  const t=document.createElement('div');
+  t.className=`toast toast-${type}`; t.textContent=msg; c.appendChild(t);
+  setTimeout(()=>t.remove(), 4500);
+}
+function setAT(el){
+  el.closest('.tab-row,.card')?.querySelectorAll('.tab-btn2').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+/* ===== NAV ===== */
+const panes = ['overview','payments','courses','teachers','students','roles','platform','global-pay'];
+function switchTab(name) {
+  panes.forEach(p => {
+    const pane = document.getElementById(`pane-${p}`);
+    const tab  = document.getElementById(`tab-${p}`);
+    if(pane) pane.style.display = p===name ? 'block' : 'none';
+    if(tab)  tab.classList.toggle('active', p===name);
+  });
+  if (name === 'students')    loadStudents('all');
+  if (name === 'payments')    loadPayments('pending');
+  if (name === 'courses')     loadCourses('all');
+  if (name === 'teachers')    loadTeachers();
+  if (name === 'roles')       loadAdminTeacherList();
+  if (name === 'overview')    loadOverview();
+  if (name === 'global-pay')  loadGlobalPaySettings();
+}
+
+function refreshAll() {
+  loadOverview();
+  toast('تم تحديث البيانات', 's');
+}
+
+/* ===== OVERVIEW ===== */
+async function loadOverview() {
+  try {
+    const [students, approved, pending, courses, teachers, approvedPayments] = await Promise.all([
+      db.collection('users').where('role','==','student').get(),
+      db.collection('payments').where('status','==','approved').get(),
+      db.collection('payments').where('status','==','pending').get(),
+      db.collection('courses').get(),
+      db.collection('users').where('role','==','teacher').get(),
+      db.collection('payments').where('status','==','approved').get()
+    ]);
+    // Calculate total revenue
+    let totalRevenue = 0;
+    approvedPayments.docs.forEach(d => { totalRevenue += Number(d.data().amount || 0); });
+    setText('ovStudents', students.size);
+    setText('ovGold',     approved.size);
+    setText('ovPending',  pending.size);
+    setText('ovCourses',  courses.size);
+    setText('ovTeachers', teachers.size);
+    setText('ovRevenue',  totalRevenue.toLocaleString('ar-DZ'));
+    if (pending.size > 0) {
+      const badge = document.getElementById('pendingCount');
+      badge.textContent = pending.size; badge.style.display = 'inline';
+    }
+    // Recent payments
+    const rp = document.getElementById('ovRecentPayments');
+    const recentPay = pending.docs.slice(0,5);
+    if (!recentPay.length) {
+      rp.innerHTML = '<div class="empty" style="padding:20px"><div class="ico" style="font-size:28px">✅</div><p>لا توجد طلبات معلقة</p></div>';
+    } else {
+      rp.innerHTML = `<table class="tbl"><thead><tr><th>الطالب</th><th>المبلغ</th><th></th></tr></thead><tbody>${recentPay.map(d=>{
+        const p=d.data();
+        return `<tr><td><strong>${p.userName||'—'}</strong><br><span style="font-size:11px;color:var(--light)">${p.courseName||''}</span></td>
+          <td>${p.amount||2500} دج</td>
+          <td><button class="btn btn-orange btn-sm" onclick="openReceiptModal('${d.id}','${p.userId}','${p.userName||''}','${p.receiptUrl}','${(p.courseName||'').replace(/'/g,'')}','${p.amount||2500}','${p.paymentMethod||'ccp'}')">عرض</button></td>
+        </tr>`;
+      }).join('')}</tbody></table>`;
+    }
+    // Recent courses
+    const rc = document.getElementById('ovRecentCourses');
+    const recentCourses = courses.docs.sort((a,b)=>{
+      const ta = a.data().createdAt?.toMillis ? a.data().createdAt.toMillis() : 0;
+      const tb = b.data().createdAt?.toMillis ? b.data().createdAt.toMillis() : 0;
+      return tb - ta;
+    }).slice(0,5);
+    if (!recentCourses.length) {
+      rc.innerHTML = '<div class="empty" style="padding:20px"><div class="ico" style="font-size:28px">📭</div><p>لا توجد دورات</p></div>';
+    } else {
+      rc.innerHTML = `<table class="tbl"><thead><tr><th>الدورة</th><th>السعر</th><th>النوع</th></tr></thead><tbody>${recentCourses.map(d=>{
+        const c=d.data();
+        return `<tr><td><strong>${c.title||'—'}</strong><br><span style="font-size:11px;color:var(--light)">${c.subject||''}</span></td>
+          <td style="font-weight:800;color:var(--sky-deep)">${c.price||2500} دج</td>
+          <td><span class="status-badge ${c.isPaid?'s-gold':'s-free'}">${c.isPaid?'🔒 مدفوع':'🆓 مجاني'}</span></td>
+        </tr>`;
+      }).join('')}</tbody></table>`;
+    }
+  } catch(e) { console.error(e); }
+}
+
+/* ===== PAYMENTS ===== */
+async function loadPayments(filter) {
+  const tbody = document.getElementById('paymentsTbody');
+  tbody.innerHTML = '<tr><td colspan="8" class="empty"><div class="ico">⏳</div><p>جارٍ التحميل...</p></td></tr>';
+  try {
+    let q = db.collection('payments').orderBy('submittedAt','desc');
+    if (filter !== 'all') q = q.where('status','==',filter);
+    const snap = await q.limit(100).get();
+    if (snap.empty) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty"><div class="ico">📭</div><p>لا توجد طلبات</p></td></tr>';
+      return;
+    }
+    const statusMap = { pending:'⏳ معلق', approved:'✅ مقبول', rejected:'❌ مرفوض' };
+    const classMap  = { pending:'s-pending', approved:'s-approved', rejected:'s-rejected' };
+    tbody.innerHTML = snap.docs.map(d => {
+      const p = d.data();
+      const date = p.submittedAt?.toDate ? p.submittedAt.toDate().toLocaleDateString('ar-DZ') : '—';
+      const isPending = p.status === 'pending';
+      return `<tr>
+        <td><strong>${p.userName||'—'}</strong><br><span style="font-size:11px;color:var(--light)">${p.userEmail||''}</span></td>
+        <td style="font-size:12px;font-weight:700">${p.courseName||'—'}</td>
+        <td><span class="status-badge ${p.paymentMethod==='baridimob'?'s-approved':'s-free'}">${p.paymentMethod==='baridimob'?'📱 Baridimob':'💳 CCP'}</span></td>
+        <td style="font-weight:800">${p.amount||2500} دج</td>
+        <td style="font-size:12px">${date}</td>
+        <td><span class="status-badge ${classMap[p.status]||''}">${statusMap[p.status]||p.status}</span></td>
+        <td><button class="btn btn-outline btn-sm" onclick="openReceiptModal('${d.id}','${p.userId}','${(p.userName||'').replace(/'/g,'')}','${p.receiptUrl}','${(p.courseName||'').replace(/'/g,'')}','${p.amount||2500}','${p.paymentMethod||'ccp'}')">📎 عرض</button></td>
+        <td style="display:flex;gap:5px;flex-wrap:wrap">
+          ${isPending ? `
+            <button class="btn btn-green btn-sm" onclick="quickApprove('${d.id}','${p.userId}','${p.courseId||''}')">✅</button>
+            <button class="btn btn-red   btn-sm" onclick="quickReject('${d.id}')">❌</button>` : '—'}
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+function openReceiptModal(payId, userId, userName, receiptUrl, courseName, amount, method) {
+  currentPaymentId = payId; currentPaymentUserId = userId;
+  setText('receiptName',   `وصل دفع: ${userName}`);
+  setText('receiptCourse', courseName || '—');
+  setText('receiptAmount', (amount||2500) + ' دج');
+  setText('receiptMethod', method === 'baridimob' ? '📱 Baridimob' : '💳 CCP');
+  const img  = document.getElementById('receiptImg');
+  const pdf  = document.getElementById('receiptPdfLink');
+  const href = document.getElementById('receiptPdfHref');
+  const url  = decodeURIComponent(receiptUrl || '');
+  if (url.includes('.pdf') || url.includes('pdf')) {
+    img.style.display = 'none'; pdf.style.display = 'block'; href.href = url;
+  } else {
+    img.src = url; img.style.display = 'block'; pdf.style.display = 'none';
+  }
+  document.getElementById('approveBtn').disabled = false;
+  document.getElementById('rejectBtn').disabled  = false;
+  document.getElementById('receiptModal').classList.add('open');
+}
+function closeReceiptModal() { document.getElementById('receiptModal').classList.remove('open'); }
+
+async function processPayment(action) {
+  document.getElementById('approveBtn').disabled = true;
+  document.getElementById('rejectBtn').disabled  = true;
+  if (action === 'approved') await approvePayment(currentPaymentId, currentPaymentUserId);
+  else await rejectPayment(currentPaymentId);
+  closeReceiptModal(); loadPayments('pending'); loadOverview();
+}
+
+async function quickApprove(payId, userId, courseId) { await approvePayment(payId, userId, courseId); loadPayments('pending'); loadOverview(); }
+async function quickReject(payId)                    { await rejectPayment(payId);                    loadPayments('pending'); loadOverview(); }
+
+async function approvePayment(payId, userId, courseId) {
+  try {
+    const expiry = new Date(); expiry.setDate(expiry.getDate() + 365);
+    const batch  = db.batch();
+    batch.update(db.collection('payments').doc(payId), {
+      status:'approved', processedAt:firebase.firestore.FieldValue.serverTimestamp(), processedBy:me.uid
+    });
+    const updateData = { subscriptionPending:false, activatedBy:me.uid, activatedAt:firebase.firestore.FieldValue.serverTimestamp() };
+    if (courseId) {
+      updateData[`purchasedCourses.${courseId}`] = {
+        purchasedAt: firebase.firestore.Timestamp.fromDate(new Date()),
+        expiresAt:   firebase.firestore.Timestamp.fromDate(expiry)
+      };
+    }
+    batch.update(db.collection('users').doc(userId), updateData);
+    await batch.commit();
+    toast('تم تفعيل الاشتراك ✅', 's');
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+async function rejectPayment(payId) {
+  try {
+    await db.collection('payments').doc(payId).update({ status:'rejected', processedAt:firebase.firestore.FieldValue.serverTimestamp(), processedBy:me.uid });
+    toast('تم رفض الطلب', 'w');
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+/* ===== COURSES ===== */
+async function loadCourses(filter) {
+  const tbody = document.getElementById('coursesTbody');
+  tbody.innerHTML = '<tr><td colspan="9" class="empty"><div class="ico">⏳</div><p>جارٍ التحميل...</p></td></tr>';
+  try {
+    let q = db.collection('courses').orderBy('createdAt','desc');
+    const [snap, teachersSnap] = await Promise.all([
+      q.limit(100).get(),
+      db.collection('users').where('role','==','teacher').get()
+    ]);
+    // Build teacher name map
+    const teacherNames = {};
+    teachersSnap.docs.forEach(d => { teacherNames[d.id] = d.data().teacherName || d.data().name || '—'; });
+
+    let docs = snap.docs;
+    if (filter === 'paid') docs = docs.filter(d => d.data().isPaid);
+    if (filter === 'free') docs = docs.filter(d => !d.data().isPaid);
+    if (!docs.length) {
+      tbody.innerHTML = '<tr><td colspan="9" class="empty"><div class="ico">📭</div><p>لا توجد دورات</p></td></tr>';
+      return;
+    }
+    tbody.innerHTML = docs.map(d => {
+      const c = d.data();
+      const tName = teacherNames[c.teacherId] || (c.teacherId ? c.teacherId.substring(0,8)+'...' : '—');
+      return `<tr>
+        <td><strong>${c.title||'—'}</strong><br><span style="font-size:11px;color:var(--light)">${c.description?c.description.substring(0,50)+'...':''}</span></td>
+        <td style="font-size:12px;font-weight:700;color:var(--purple)">${tName}</td>
+        <td style="font-size:12px">${c.level||'—'}</td>
+        <td style="font-size:12px">${c.subject||'—'}</td>
+        <td style="font-weight:800;color:var(--sky-deep)">${c.price||2500} دج</td>
+        <td><span class="status-badge ${c.isPaid?'s-gold':'s-free'}">${c.isPaid?'🔒 مدفوع':'🆓 مجاني'}</span></td>
+        <td><span style="color:${c.useCCP?'var(--green)':'var(--light)'}">${c.useCCP?'✓':'✗'}</span></td>
+        <td><span style="color:${c.useBaridimob?'var(--green)':'var(--light)'}">${c.useBaridimob?'✓':'✗'}</span></td>
+        <td><button class="btn btn-red btn-sm" onclick="deleteCourse('${d.id}','${(c.title||'').replace(/'/g,'')}')">🗑️</button></td>
+      </tr>`;
+    }).join('');
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+async function deleteCourse(id, title) {
+  if (!confirm(`حذف الدورة "${title}" نهائياً؟`)) return;
+  try {
+    const lessons = await db.collection('lessons').where('courseId','==',id).get();
+    const batch = db.batch();
+    lessons.forEach(d => batch.delete(d.ref));
+    batch.delete(db.collection('courses').doc(id));
+    await batch.commit();
+    toast('تم حذف الدورة', 's');
+    loadCourses('all');
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+/* ===== TEACHERS ===== */
+let allTeachers = [];
+async function loadTeachers() {
+  const tbody = document.getElementById('teachersTbody');
+  tbody.innerHTML = '<tr><td colspan="6" class="empty"><div class="ico">⏳</div><p>جارٍ التحميل...</p></td></tr>';
+  try {
+    const [teachersSnap, coursesSnap] = await Promise.all([
+      db.collection('users').where('role','==','teacher').orderBy('createdAt','desc').get(),
+      db.collection('courses').get()
+    ]);
+    const coursesByTeacher = {};
+    coursesSnap.docs.forEach(d => {
+      const tid = d.data().teacherId;
+      if (tid) coursesByTeacher[tid] = (coursesByTeacher[tid] || 0) + 1;
+    });
+    // Update teacher stats
+    setText('tStatTotal', teachersSnap.size);
+    setText('tStatCourses', coursesSnap.size);
+    if (teachersSnap.empty) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty"><div class="ico">📭</div><p>لا يوجد أساتذة</p></td></tr>';
+      allTeachers = [];
+      return;
+    }
+    allTeachers = teachersSnap.docs.map(d => ({ id: d.id, ...d.data(), courseCount: coursesByTeacher[d.id] || 0 }));
+    renderTeachersTable(allTeachers);
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+function renderTeachersTable(teachers) {
+  const tbody = document.getElementById('teachersTbody');
+  if (!teachers.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty"><div class="ico">📭</div><p>لا يوجد أساتذة</p></td></tr>';
+    return;
+  }
+  tbody.innerHTML = teachers.map(u => {
+    const date = u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString('ar-DZ') : '—';
+    return `<tr>
+      <td><strong>${u.teacherName || u.name || '—'}</strong></td>
+      <td style="font-size:12px">${u.email||'—'}</td>
+      <td style="text-align:center;font-weight:800;color:var(--sky-deep)">${u.courseCount}</td>
+      <td><span class="status-badge s-teacher">👨‍🏫 أستاذ</span></td>
+      <td style="font-size:12px">${date}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-red btn-sm" onclick="demoteToStudent('${u.id}')">تحويل لطالب</button>
+        <button class="btn btn-sm" style="background:rgba(239,68,68,.15);color:var(--red);border:1.5px solid rgba(239,68,68,.3)" onclick="deleteTeacher('${u.id}','${(u.teacherName||u.name||'').replace(/'/g,'')}')">🗑️ حذف</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function searchTeachers() {
+  const term = document.getElementById('teacherSearch')?.value?.toLowerCase() || '';
+  if (!term) { renderTeachersTable(allTeachers); return; }
+  renderTeachersTable(allTeachers.filter(u =>
+    (u.name||'').toLowerCase().includes(term) ||
+    (u.teacherName||'').toLowerCase().includes(term) ||
+    (u.email||'').toLowerCase().includes(term)
+  ));
+}
+
+async function deleteTeacher(uid, name) {
+  if (!confirm(`حذف حساب الأستاذ "${name}" نهائياً؟\nسيتم حذف حسابه من قاعدة البيانات.\nهذا الإجراء لا يمكن التراجع عنه.`)) return;
+  try {
+    await db.collection('users').doc(uid).delete();
+    toast('تم حذف الأستاذ نهائياً', 'w');
+    loadTeachers();
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+function openAddTeacherModal() { document.getElementById('addTeacherModal').classList.add('open'); }
+function closeAddTeacherModal() { document.getElementById('addTeacherModal').classList.remove('open'); }
+
+function switchAddTeacherMode(mode, el) {
+  document.getElementById('addTeacherExisting').style.display = mode === 'existing' ? 'block' : 'none';
+  document.getElementById('addTeacherNew').style.display = mode === 'new' ? 'block' : 'none';
+  document.querySelectorAll('#addTeacherTabRow .tab-btn2').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+async function promoteExistingToTeacher() {
+  const email = val('atExistingEmail');
+  if (!email) { toast('أدخل البريد الإلكتروني', 'w'); return; }
+  try {
+    const snap = await db.collection('users').where('email','==',email).limit(1).get();
+    if (snap.empty) { toast('لم يُوجد مستخدم بهذا البريد', 'e'); return; }
+    await snap.docs[0].ref.update({ role: 'teacher' });
+    toast(`تم ترقية ${email} إلى أستاذ ✅`, 's');
+    document.getElementById('atExistingEmail').value = '';
+    closeAddTeacherModal();
+    loadTeachers();
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+async function createNewTeacher() {
+  const name    = val('atNewName');
+  const email   = val('atNewEmail');
+  const pass    = val('atNewPass');
+  const subject = val('atNewSubject');
+  if (!name || !email || !pass) { toast('يرجى ملء جميع الحقول المطلوبة', 'w'); return; }
+  if (pass.length < 8) { toast('كلمة المرور يجب أن تكون 8 أحرف على الأقل', 'w'); return; }
+  try {
+    // Create user via Firebase Auth REST API (secondary app trick)
+    const secondaryApp = firebase.initializeApp(firebase.app().options, 'secondary_' + Date.now());
+    const secondaryAuth = secondaryApp.auth();
+    const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pass);
+    const newUid = cred.user.uid;
+    await secondaryAuth.signOut();
+    await secondaryApp.delete();
+    // Save to Firestore
+    await db.collection('users').doc(newUid).set({
+      name, teacherName: name, email, role: 'teacher',
+      subject: subject || '',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy: me.uid
+    });
+    toast(`تم إنشاء حساب الأستاذ ${name} ✅`, 's');
+    document.getElementById('atNewName').value = '';
+    document.getElementById('atNewEmail').value = '';
+    document.getElementById('atNewPass').value = '';
+    document.getElementById('atNewSubject').value = '';
+    closeAddTeacherModal();
+    loadTeachers();
+  } catch(e) {
+    if (e.code === 'auth/email-already-in-use') toast('البريد الإلكتروني مستخدم مسبقاً، استخدم خيار الترقية', 'e');
+    else toast('خطأ: ' + e.message, 'e');
+  }
+}
+
+async function demoteToStudent(uid) {
+  if (!confirm('تحويل هذا الأستاذ لطالب؟')) return;
+  try {
+    await db.collection('users').doc(uid).update({ role: 'student' });
+    toast('تم التحويل', 'w'); loadTeachers();
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+/* ===== STUDENTS ===== */
+async function loadStudents(filter) {
+  const tbody = document.getElementById('studentsTbody');
+  tbody.innerHTML = '<tr><td colspan="6" class="empty"><div class="ico">⏳</div><p>جارٍ التحميل...</p></td></tr>';
+  try {
+    let q = db.collection('users').where('role','==','student');
+    if (filter === 'pending') q = q.where('subscriptionPending','==',true);
+    const snap = await q.orderBy('createdAt','desc').limit(200).get();
+    let docs = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+    // filter subscribed (has at least one purchasedCourse)
+    if (filter === 'subscribed') docs = docs.filter(u => u.purchasedCourses && Object.keys(u.purchasedCourses).length > 0);
+    allStudents = docs;
+    renderStudentsTable(allStudents);
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+function renderStudentsTable(students) {
+  const tbody = document.getElementById('studentsTbody');
+  if (!students.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty"><div class="ico">📭</div><p>لا يوجد طلاب</p></td></tr>';
+    return;
+  }
+  tbody.innerHTML = students.map(u => {
+    const date = u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString('ar-DZ') : '—';
+    const courses = u.purchasedCourses ? Object.keys(u.purchasedCourses).length : 0;
+    const isPending = u.subscriptionPending;
+    return `<tr>
+      <td><strong>${u.name||'—'}</strong></td>
+      <td style="font-size:12px;color:var(--mid)">${u.email||'—'}</td>
+      <td style="font-size:12px;text-align:center;font-weight:700">${courses}</td>
+      <td>${isPending
+        ? '<span class="status-badge s-pending">⏳ معلق</span>'
+        : courses > 0
+          ? `<span class="status-badge s-approved">✅ ${courses} دورة</span>`
+          : '<span class="status-badge s-free">مجاني</span>'
+      }</td>
+      <td style="font-size:12px">${date}</td>
+      <td style="display:flex;gap:5px;flex-wrap:wrap">
+        <button class="btn btn-red btn-sm" onclick="deleteUser('${u.id}')">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function searchStudents() {
+  const term = document.getElementById('studentSearch')?.value?.toLowerCase() || '';
+  if (!term) { renderStudentsTable(allStudents); return; }
+  renderStudentsTable(allStudents.filter(u =>
+    (u.name||'').toLowerCase().includes(term) || (u.email||'').toLowerCase().includes(term)
+  ));
+}
+
+async function deleteUser(uid) {
+  if (!confirm('حذف هذا الطالب نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.')) return;
+  try {
+    await db.collection('users').doc(uid).delete();
+    toast('تم حذف الطالب', 'w'); loadStudents('all');
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+/* ===== ROLES ===== */
+async function loadAdminTeacherList() {
+  const tbody = document.getElementById('adminTeacherTbody');
+  tbody.innerHTML = '<tr><td colspan="5" class="empty"><div class="ico">⏳</div><p>جارٍ التحميل...</p></td></tr>';
+  try {
+    const snap = await db.collection('users').where('role','in',['admin','teacher']).orderBy('createdAt','desc').limit(50).get();
+    if (snap.empty) { tbody.innerHTML = '<tr><td colspan="5" class="empty"><div class="ico">📭</div><p>لا يوجد مديرون أو أساتذة</p></td></tr>'; return; }
+    tbody.innerHTML = snap.docs.map(d => {
+      const u = d.data();
+      const date = u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString('ar-DZ') : '—';
+      return `<tr>
+        <td><strong>${u.name||u.teacherName||'—'}</strong></td>
+        <td style="font-size:12px">${u.email||'—'}</td>
+        <td><span class="status-badge ${u.role==='admin'?'s-admin':'s-teacher'}">${u.role==='admin'?'👑 مدير':'👨‍🏫 أستاذ'}</span></td>
+        <td style="font-size:12px">${date}</td>
+        <td><button class="btn btn-red btn-sm" onclick="demoteRole('${d.id}')">تحويل لطالب</button></td>
+      </tr>`;
+    }).join('');
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+async function promoteUser() {
+  const email = val('promoteEmail'), role = val('promoteRole');
+  if (!email) { toast('أدخل البريد الإلكتروني', 'w'); return; }
+  try {
+    const snap = await db.collection('users').where('email','==',email).limit(1).get();
+    if (snap.empty) { toast('لم يُوجد مستخدم بهذا البريد', 'e'); return; }
+    await snap.docs[0].ref.update({ role });
+    toast(`تم تغيير دور ${email} إلى ${role} ✅`, 's');
+    document.getElementById('promoteEmail').value = '';
+    loadAdminTeacherList();
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+async function demoteRole(uid) {
+  if (!confirm('تحويل هذا المستخدم لطالب؟')) return;
+  try {
+    await db.collection('users').doc(uid).update({ role:'student' });
+    toast('تم التحويل', 'w'); loadAdminTeacherList();
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+/* ===== PLATFORM SETTINGS ===== */
+async function savePlatformSettings() {
+  try {
+    await db.collection('settings').doc('platform').set({
+      name:    val('pName'),
+      tagline: val('pTagline'),
+      desc:    val('pDesc'),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    toast('تم حفظ إعدادات المنصة ✅', 's');
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+async function savePlatformNotifs() {
+  try {
+    await db.collection('settings').doc('platform').set({
+      notifEmail:    document.getElementById('sNotifEmail').checked,
+      autoApprove:   document.getElementById('sAutoApprove').checked,
+      maintenanceMode: document.getElementById('sMaintenanceMode').checked,
+      updatedAt:     firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    toast('تم حفظ الإعدادات ✅', 's');
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+/* ===== GLOBAL PAY ===== */
+async function loadGlobalPaySettings() {
+  try {
+    const s = await db.collection('settings').doc('payments').get();
+    if (s.exists) {
+      const d = s.data();
+      document.getElementById('gsCcpNum').value   = d.ccpNumber       || '';
+      document.getElementById('gsCcpOwner').value = d.ccpOwner        || '';
+      document.getElementById('gsRip').value      = d.baridimobRip    || '';
+      document.getElementById('gsRipOwner').value = d.baridimobOwner  || '';
+    }
+  } catch(e) {}
+}
+
+async function saveGlobalPaySettings() {
+  try {
+    await db.collection('settings').doc('payments').set({
+      ccpNumber:      val('gsCcpNum'),
+      ccpOwner:       val('gsCcpOwner'),
+      baridimobRip:   val('gsRip'),
+      baridimobOwner: val('gsRipOwner'),
+      updatedAt:      firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    toast('تم حفظ إعدادات الدفع ✅', 's');
+  } catch(e) { toast('خطأ: ' + e.message, 'e'); }
+}
+
+/* ===== AUTH ===== */
+async function logout() { await auth.signOut(); location.href = 'index.html'; }
+</script>
+</body>
+</html>
